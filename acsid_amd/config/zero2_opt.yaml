@@ -1,20 +1,27 @@
+# BACKUP ONLY — not wired into any acsid_amd script.
+#
+# The AMD plan runs single-GPU with plain `python` (no accelerate/deepspeed):
+# MI300X 192GB fits full-param 3B + GRPO group_size=16 without ZeRO sharding.
+#
+# This config exists in case a multi-MI300X or ZeRO-offload setup is ever
+# needed (the A10/NVIDIA path used the same shape via `accelerate launch`).
+# It is now corrected for ONE device and NO DeepSpeed; restore `DEEPSPEED`
+# + set num_processes if you actually shard.
+
 compute_environment: LOCAL_MACHINE
-distributed_type: DEEPSPEED
+distributed_type: "NO"      # single device; use "DEEPSPEED" only when sharding across multiple MI300X
 num_machines: 1
-# num_processes: 8
+num_processes: 1
 mixed_precision: bf16
 
-deepspeed_config:
-  zero_stage: 2
-  contiguous_gradients: true
-  overlap_comm: true
-  reduce_scatter: true
-  reduce_bucket_size: 5e8
-  allgather_bucket_size: 5e8
-  offload_optimizer_device: none
-  offload_param_device: none
-#  gradient_accumulation_steps: 1
-#  optimize_with_dynamo: true
-# optimize_model_with_dynamo: true
-# dynamo_backend: inductor
+# deepspeed_config:        # only if distributed_type: DEEPSPEED
+#   zero_stage: 2
+#   contiguous_gradients: true
+#   overlap_comm: true
+#   reduce_scatter: true
+#   reduce_bucket_size: 5e8
+#   allgather_bucket_size: 5e8
+#   offload_optimizer_device: none
+#   offload_param_device: none
+
 debug: false

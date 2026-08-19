@@ -1,4 +1,16 @@
-﻿from datasets import Dataset
+﻿import os
+import sys
+
+# acsid_amd/rl.py lives outside MiniOneRec/; put MiniOneRec/ on sys.path so
+# `from data import ...`, `from minionerec_trainer import ...`, `from sasrec
+# import ...` resolve when launched as `python ../acsid_amd/rl.py` from MiniOneRec/.
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_THIS_DIR)
+for _p in (os.path.join(_PROJECT_ROOT, "MiniOneRec"), _PROJECT_ROOT):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+from datasets import Dataset
 from trl import GRPOConfig, GRPOTrainer
 import random
 import numpy as np
@@ -279,7 +291,7 @@ def train(
                                 max_grad_norm= 0.3,
                                 num_train_epochs=num_train_epochs,
                                 bf16=True,
-                                optim="adamw_torch"  # changed from paged_adamw_32bit for AMD ROCm,
+                                optim="adamw_torch",  # changed from paged_adamw_32bit for AMD ROCm
                                 lr_scheduler_type="cosine", 
                                 save_strategy="steps",
                                 report_to="wandb",

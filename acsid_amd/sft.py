@@ -1,7 +1,17 @@
 ﻿import os
 import sys
+
+# acsid_amd/sft.py lives outside MiniOneRec/; put MiniOneRec/ on sys.path so
+# `from data import ...` resolves when this script is launched as
+# `python ../acsid_amd/sft.py` from MiniOneRec/ (the supported run cwd).
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_THIS_DIR)
+for _p in (os.path.join(_PROJECT_ROOT, "MiniOneRec"), _PROJECT_ROOT):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
 from typing import List
-import numpy as np 
+import numpy as np
 import fire
 import torch
 import transformers
@@ -140,7 +150,12 @@ def train(
         config = AutoConfig.from_pretrained(base_model)
         model = AutoModelForCausalLM.from_config(config)
         print("Training from scratch!")
-        
+
+    # Capture the vocab size before SID token extension so the freeze_LLM
+    # branch below can mask gradients of the ORIGINAL rows (the upstream code
+    # referenced `original_vocab_size` without ever defining it).
+    original_vocab_size = model.get_input_embeddings().weight.shape[0]
+
     tokenizer = AutoTokenizer.from_pretrained(base_model, trust_remote_code=True)
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.pad_token_id = tokenizer.eos_token_id
@@ -148,11 +163,13 @@ def train(
     
     if sid_index_path and os.path.exists(sid_index_path):
         print(f"Loading index from {sid_index_path}")
-        token_extender = TokenExtender(
-            data_path=os.path.dirname(sid_index_path),
-            dataset=os.path.basename(sid_index_path).split('.')[0]
-        )
-        new_tokens = token_extender.get_new_tokens()
+        # TokenExtender joins data_path + dataset + ".index.json"; rather than
+        # twisting it to fit, load the index JSON directly and collect tokens
+        # inline so we honor the EXACT sid_index_path the caller passed (it may
+        # be index.text.json / index.fixed.json / index.adaptive.json).
+        with open(sid_index_path, 'r') as _f:
+            _idx = json.load(_f)
+        new_tokens = sorted({tok for toks in _idx.values() for tok in toks})
         if new_tokens:
             print(f"Adding {len(new_tokens)} new tokens to tokenizer")
             tokenizer.add_tokens(new_tokens)
