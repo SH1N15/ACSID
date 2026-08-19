@@ -14,5 +14,10 @@ Thumbs.db
 .vscode/
 *.swp
 
+# Python venvs (one per hardware branch)
+.venv/
+.venv-amd/
+acsid_amd/__pycache__/
+
 # ZCode CLI workspace-local plans/memory — tooling-internal, not project content
 .zcode/

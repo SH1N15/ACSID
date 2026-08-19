@@ -54,18 +54,42 @@ is **shared** with the A10 branch — run `acsid/generate_sid.py` unchanged
 
 ## Running on the cloud MI300X
 
-### 0. Environment (ROCm)
+### 0. Environment (ROCm) — isolated, single GPU
+
+**Process**: build a dedicated venv (`bash acsid_amd/setup_env.sh`), which installs
+PyTorch for ROCm + the requirements WITHOUT touching any CUDA/NVIDIA env on the
+machine. torch is deliberately NOT in `requirements.txt` so it can't accidentally
+fall back to a CUDA/CPU wheel — the setup script installs it first from the ROCm
+index.
+
+Default install location: `${PROJECT_ROOT}/.venv-amd` (gitignored).
 
 ```bash
-# PyTorch ROCm first (torch is deliberately NOT pinned in requirements.txt,
-# otherwise pip would pull the CUDA/CPU wheel):
-pip install torch --index-url https://download.pytorch.org/whl/rocm6.2
-pip install -r acsid_amd/requirements.txt
+# clone + check out this branch
+git clone https://github.com/SH1N15/ACSID.git
+cd ACSID && git checkout acsid-amd
+
+# single isolated venv (idempotent; re-run to upgrade/repair)
+bash acsid_amd/setup_env.sh
+source .venv-amd/bin/activate
 
 # sanity: ROCm sees the GPU
 python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
 # expect: True AMD Instinct MI300X ...
 ```
+
+Knobs (env vars) for the setup script:
+
+| var | default | meaning |
+|---|---|---|
+| `VENV_DIR` | `${PROJECT_ROOT}/.venv-amd` | location of the isolated virtualenv |
+| `ROCM_TAG` | `rocm6.2` | PyTorch ROCm wheel tag (use `rocm6.3.4`, etc. to match your driver) |
+| `PY_VER` | `python3.10` | base interpreter used to create the venv |
+
+> **conda alternative**: `mamba env create -f acsid_amd/environment.yml` →
+> `conda activate acsid-amd` → then the same two pip steps the venv path runs
+> (torch from the ROCm index, then `pip install -r
+> acsid_amd/requirements.txt`). Use only if your stack prefers conda.
 
 ### 1. Phase 2 — SID construction (shared pipeline, runs on MI300X)
 

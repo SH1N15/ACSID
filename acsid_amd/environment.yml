@@ -1,0 +1,23 @@
+# Alternative standalone environment for the acsid-amd branch (conda/mamba).
+# Use this ONLY if you prefer conda over the venv script (setup_env.sh).
+#
+#   mamba env create -f acsid_amd/environment.yml
+#   conda activate acsid-amd
+#   # then install torch ROCm (torch is NOT pinned in this env.yml to avoid
+#   # conda pulling a CUDA/CPU build):
+#   pip install torch --index-url https://download.pytorch.org/whl/rocm6.2
+#   pip install -r acsid_amd/requirements.txt
+#   python -c "import torch; print(torch.cuda.is_available())"
+#
+# Keeping this file minimal: conda for python + system libs, pip for the rest,
+# matching the venv path exactly.
+
+name: acsid-amd
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  # system libs that make ROCm/torch happier on some stacks:
+  - wheel
+  - setuptools
