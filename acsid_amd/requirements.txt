@@ -87,7 +87,7 @@ pydantic==2.12.2
 pydantic_core==2.41.4
 Pygments==2.18.0
 pyre-extensions==0.0.30
-python-dateutil==2.9.0.post1
+python-dateutil>=2.8.2,<3
 pytz==2024.1
 PyYAML==6.0.1
 regex==2025.9.18
