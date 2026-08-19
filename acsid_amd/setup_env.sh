@@ -141,8 +141,15 @@ source "${VENV_DIR}/bin/activate"
 
 # 3) Upgrade pip tooling in the venv. The torch inherited from the system is
 #    untouched; deps below are installed INTO the venv.
-echo "[setup_env] upgrading pip tooling"
-python -m pip install --upgrade pip setuptools wheel
+#
+# NB: do NOT blindly `--upgrade setuptools`. The host image pins it for
+# torch 2.11 (<82) and vllm 0.26.0+rocm723 (<80); forcing setuptools 84 into
+# the venv re-breaks the inherited torch/vllm even though they live in the
+# system site (pip flags it as a conflict). Just upgrade pip + wheel; leave
+# setuptools at whatever `--system-site-packages` inherited, which is the
+# version known to satisfy torch/vllm.
+echo "[setup_env] upgrading pip tooling (pip + wheel only; setuptools left alone)"
+python -m pip install --upgrade pip wheel
 
 # 4) Project requirements. torch is intentionally NOT in requirements.txt,
 #    so pip here only adds the dependencies the project actually needs
