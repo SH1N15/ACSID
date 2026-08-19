@@ -1,21 +1,26 @@
-﻿#!/bin/bash
-# ACSID full experiment matrix — AMD MI300X 192GB single GPU
+#!/bin/bash
+# ACSID full experiment matrix — AMD MI300X 192GB single GPU.
+# 6 SFT (3 methods x 2 seeds) + 4 GRPO (2 methods x 2 seeds) = 10 runs.
 #
-# 6 SFT runs (3 methods x 2 seeds) + 4 GRPO runs (2 methods x 2 seeds) = 10 total
+# Self-locating: bash acsid_amd/run_experiments.sh  (invoke from anywhere).
+# Runs from MiniOneRec/ so ./data/Amazon/... resolves; launches the AMD-adapted
+# entries at ../acsid_amd/sft.py and ../acsid_amd/rl.py.
 #
-# Usage:
-#   bash acsid_amd/run_experiments.sh
-#
-# Prerequisites:
-#   1. Phase 2 SID construction completed (3 sets of index.*.json + CSVs)
-#   2. Qwen2.5-3B-Base downloaded and path set below
-#   3. Run from MiniOneRec/ directory
-set -euo pipefail
+# Prereqs:
+#   1. Phase 2 SID construction done (acsid/generate_sid.py produced
+#      ./data/Amazon/index/<dataset>.index.{text,fixed,adaptive}.json and
+#      ./data/Amazon/{text,fixed,adaptive}/{train,valid,test,info}/...).
+#   2. Qwen2.5-3B-Base downloaded; set BASE_MODEL env var (absolute path).
 
+set -euo pipefail
 export NCCL_IB_DISABLE=1
 export HIP_VISIBLE_DEVICES=0
 
-BASE_MODEL="/path/to/Qwen2.5-3B-Base"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+cd "${PROJECT_ROOT}/MiniOneRec"
+
+BASE_MODEL="${BASE_MODEL:-/path/to/Qwen2.5-3B-Base}"
 DATASET="Industrial_and_Scientific"
 ITEM_META="./data/Amazon/index/${DATASET}.item.json"
 
@@ -45,12 +50,12 @@ for mode in text fixed adaptive; do
         test_file=$(ls -f ${DATA_DIR[$mode]}/test/${DATASET}*11.csv)
         info_file=$(ls -f ${DATA_DIR[$mode]}/info/${DATASET}*.txt)
 
-        python sft.py \
-            --base_model ${BASE_MODEL} \
+        python ../acsid_amd/sft.py \
+            --base_model "${BASE_MODEL}" \
             --batch_size 1024 \
             --micro_batch_size 16 \
-            --train_file ${train_file} \
-            --eval_file ${eval_file} \
+            --train_file "${train_file}" \
+            --eval_file "${eval_file}" \
             --output_dir output_dir/sft_${mode}_seed${seed} \
             --wandb_project "" \
             --wandb_run_name sft_${mode}_seed${seed} \
@@ -75,15 +80,15 @@ for mode in text adaptive; do
         eval_file=$(ls -f ${DATA_DIR[$mode]}/valid/${DATASET}*11.csv)
         info_file=$(ls -f ${DATA_DIR[$mode]}/info/${DATASET}*.txt)
 
-        python rl.py \
-            --model_path ${sft_ckpt} \
+        python ../acsid_amd/rl.py \
+            --model_path "${sft_ckpt}" \
             --train_batch_size 64 \
             --eval_batch_size 128 \
             --num_train_epochs 2 \
             --gradient_accumulation_steps 2 \
-            --train_file ${train_file} \
-            --eval_file ${eval_file} \
-            --info_file ${info_file} \
+            --train_file "${train_file}" \
+            --eval_file "${eval_file}" \
+            --info_file "${info_file}" \
             --category ${DATASET} \
             --sample_train False \
             --eval_step 0.0999 \
