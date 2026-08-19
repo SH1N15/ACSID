@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
 # Standalone, reproducible environment for the acsid-amd branch.
 #
-# Builds an isolated Python virtualenv (default: ${PROJECT_ROOT}/.venv-amd)
-# with PyTorch for ROCm + the acsid_amd requirements, WITHOUT touching any
-# CUDA/NVIDIA env on the same machine. Designed to be idempotent: re-run to
-# upgrade-in-place or repair.
+# Default target image: Ubuntu + ROCm 7.2.3 + Python 3.12 + torch 2.11
+#   (e.g. ModelScope/Aliyun DSW `rocm7.2.3-py312-torch2.11.0` series).
+# The base image already ships a matching torch+ROCm in the SYSTEM python, so
+# this script BUILDS A VENV THAT INHERITS SYSTEM PACKAGES
+# (`--system-site-packages`): torch comes through from the host untouched,
+# and only the acsid_amd requirements are added to the venv. This avoids
+# reinstalling torch against a wrong ROCm tag/wheel.
 #
-# Run on the cloud MI300X box (Ubuntu/Debian, ROCm driver present). Do NOT
-# run on Windows/MINGW -- torch ROCm wheels are Linux-only.
+# Do NOT run on Windows/macOS -- this script targets the cloud Linux+ROCm box.
 #
 # Usage (from anywhere):
-#   bash acsid_amd/setup_env.sh                # default: .venv-amd, rocm6.2
-#   VENV_DIR=/opt/acsid-amd ROCM_TAG=rocm6.3.4 \
-#       bash acsid_amd/setup_env.sh           # override location / ROCm release
+#   bash acsid_amd/setup_env.sh                # default: .venv-amd, inherits system torch
+#   VENV_DIR=/opt/acsid-amd PY_VER=python3.12 \
+#       bash acsid_amd/setup_env.sh            # override location / base interpreter
 #
 # After it finishes:
 #   source .venv-amd/bin/activate
-#   python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+#   python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))"
 
 set -euo pipefail
 
@@ -29,66 +31,123 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-REPO_ROOT="${PROJECT_ROOT}"   # repo contains MiniOneRec/ at top level
 VENV_DIR="${VENV_DIR:-${PROJECT_ROOT}/.venv-amd}"
-ROCM_TAG="${ROCM_TAG:-rocm6.2}"
-ROCM_INDEX="https://download.pytorch.org/whl/${ROCM_TAG}"
-PY_VER="${PY_VER:-python3.10}"
+PY_VER="${PY_VER:-python3.12}"
 
 echo "[setup_env] project root : ${PROJECT_ROOT}"
 echo "[setup_env] venv dir     : ${VENV_DIR}"
-echo "[setup_env] ROCm tag      : ${ROCM_TAG}"
-echo "[setup_env] python base   : ${PY_VER}"
+echo "[setup_env] python base  : ${PY_VER}"
+echo "[setup_env] inherits system torch (no torch reinstall)"
 
-# 1) Ensure the venv exists (create lazily; don't blow away an existing one).
-if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
-    if ! command -v "${PY_VER}" >/dev/null 2>&1; then
-        echo "[setup_env] '${PY_VER}' not found. Install it first, e.g.:" >&2
-        echo "[setup_env]   sudo apt-get update && sudo apt-get install -y ${PY_VER}-venv" >&2
-        exit 3
+# 1) Make sure the base interpreter exists.
+if ! command -v "${PY_VER}" >/dev/null 2>&1; then
+    echo "[setup_env] '${PY_VER}' not found. Common fix on this image:" >&2
+    echo "[setup_env]   sudo apt-get update && sudo apt-get install -y ${PY_VER} ${PY_VER}-venv" >&2
+    echo "[setup_env] (override base interpreter with: PY_VER=python3.x bash setup_env.sh)" >&2
+    exit 3
+fi
+
+# Sanity: the base image advertises a torch we can lean on. Fail loudly here
+# rather than silently pulling a wrong wheel below.
+"${PY_VER}" - <<'PY' || {
+    echo "[setup_env] system torch not importable under ${PY_VER}." >&2
+    echo "[setup_env] This script assumes the cloud image preinstalls torch+ROCm" >&2
+    echo "[setup_env] (target: rocm7.2.3-py312-torch2.11.0). If so, fix PY_VER." >&2
+    echo "[setup_env] If you instead need to install torch yourself, override the" >&2
+    echo "[setup_env] block in setup_env.sh (search: torch reinstall)." >&2
+    exit 5
+}
+import torch
+print("  -> system torch:", torch.__version__)
+PY
+
+# 2) Create the venv (inherit system packages so torch+ROCm pass through).
+#    Debian/Ubuntu split the stdlib venv module into the `python3.X-venv` apt
+#    package; the failure mode -- "ensurepip is not available" -- is detected
+#    and auto-installed (when running as root) before retrying once.
+create_venv_with_rescue() {
+    local py="$1" target="$2"
+    if "$py" -m venv --system-site-packages "$target"; then return 0; fi
+
+    if "$py" -c "import ensurepip" >/dev/null 2>&1; then
+        echo "[setup_env] venv creation failed but ensurepip imports ok -- unknown cause; see above." >&2
+        return 1
     fi
-    echo "[setup_env] creating venv at ${VENV_DIR}"
-    "${PY_VER}" -m venv "${VENV_DIR}"
+
+    local py_short
+    py_short="$("$py" -c 'import sys;print(f"{sys.version_info[0]}.{sys.version_info[1]}")')"
+    local pkg="python${py_short}-venv"
+    echo "[setup_env] ensurepip unavailable; need the ${pkg} apt package."
+
+    if ! command -v apt-get >/dev/null 2>&1; then
+        echo "[setup_env] apt-get not found (not Debian/Ubuntu)." >&2
+        echo "[setup_env] Install ${pkg} through your distro's package manager, or use" >&2
+        echo "[setup_env]   mamba env create -f acsid_amd/environment.yml  (conda alternative, see README)" >&2
+        return 1
+    fi
+
+    if [ "$(id -u)" = "0" ]; then
+        echo "[setup_env] running as root -> apt-get install -y ${pkg} (then retry)"
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y "${pkg}"
+        if "$py" -m venv --system-site-packages "$target"; then return 0; fi
+        echo "[setup_env] venv creation failed even after installing ${pkg}." >&2
+        return 1
+    else
+        echo "[setup_env] not root. Please run (or have an admin run):" >&2
+        echo "    sudo apt-get install -y ${pkg}" >&2
+        echo "[setup_env] then re-run: bash acsid_amd/setup_env.sh" >&2
+        echo "[setup_env] (conda fallback: mamba env create -f acsid_amd/environment.yml)" >&2
+        return 1
+    fi
+}
+
+if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
+    echo "[setup_env] creating venv at ${VENV_DIR} (with system site-packages)"
+    create_venv_with_rescue "${PY_VER}" "${VENV_DIR}" \
+        || { echo "[setup_env] could not create venv -- aborting." >&2; exit 4; }
+else
+    echo "[setup_env] venv already exists at ${VENV_DIR}"
 fi
 
 # shellcheck disable=SC1091
 source "${VENV_DIR}/bin/activate"
 
+# 3) Upgrade pip tooling in the venv. The torch inherited from the system is
+#    untouched; deps below are installed INTO the venv.
 echo "[setup_env] upgrading pip tooling"
 python -m pip install --upgrade pip setuptools wheel
 
-# 2) PyTorch for ROCm FIRST, from the dedicated index so pip can't fall back
-#    to a CUDA/CPU wheel. torch is deliberately NOT pinned in requirements.txt.
-echo "[setup_env] installing torch from ${ROCM_INDEX}"
-python -m pip install --no-cache-dir torch \
-    --index-url "${ROCM_INDEX}"
-
-# 3) Project requirements (no torch pin; no CUDA/nvidia-* wheels).
-echo "[setup_env] installing acsid_amd requirements"
+# 4) Project requirements. torch is intentionally NOT in requirements.txt,
+#    so pip here only adds the dependencies the project actually needs
+#    (transformers, trl, gensim, ...). The system torch stays as-is.
+echo "[setup_env] installing acsid_amd requirements into venv"
 python -m pip install --no-cache-dir -r "${SCRIPT_DIR}/requirements.txt"
 
-# 4) Sanity checks. ROCm exposes the GPU through torch's CUDA API (CUDA-on-HIP).
+# 5) Sanity checks.
 echo "[setup_env] verification:"
-python - <<PY
-import torch, sys
-print("  python :", sys.version.split()[0])
-print("  torch  :", torch.__version__)
-print("  nsight?:", getattr(torch.version, "hip", None))
+python - <<'PY'
+import torch, sys, transformers, trl, datasets
+print("  python        :", sys.version.split()[0])
+print("  torch         :", torch.__version__)
+print("  hip runtime   :", getattr(torch.version, "hip", None))
 try:
-    print("  cuda?  :", torch.cuda.is_available())
+    print("  cuda visible  :", torch.cuda.is_available())
     if torch.cuda.is_available():
-        print("  device :", torch.cuda.get_device_name(0))
+        print("  device        :", torch.cuda.get_device_name(0))
 except Exception as e:
     print("  cuda probe failed:", e)
+print("  transformers  :", transformers.__version__)
+print("  trl           :", trl.__version__)
 PY
 
 # Optional: quick import of the modules that matter for this branch, to catch
-# missing deps early (does not import bitsandbytes; AMD does not need it).
-echo "[setup_env] module import smoke (MiniOneRec libs):"
+# missing deps early. (Does not import bitsandbytes; AMD does not need it.)
+echo "[setup_env] MiniOneRec lib import smoke:"
 cd "${PROJECT_ROOT}/MiniOneRec"
-python - <<PY
-import transformers, trl, datasets, pandas, numpy, sklearn, fire, wandb
-print("  transformers:", transformers.__version__, "trl:", trl.__version__)
+python - <<'PY' || { echo "[setup_env] import smoke failed -- see above"; exit 6; }
+import transformers, trl, datasets, pandas, numpy, sklearn, fire, wandb, gensim
+print("  all SFT/RL + acsid deps import OK")
 PY
 
 echo
