@@ -112,12 +112,28 @@ create_venv_with_rescue() {
     fi
 }
 
-if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
+# A previous `python3.10 -m venv` that failed at `ensurepip is not available`
+# leaves a HALF-built venv: it creates the directory + bin/python symlink but
+# never writes bin/activate / bin/pip. So requiring only bin/executable(...) is
+# too lenient -- treat the venv as "exists" only when it has the activate+pip
+# markers too; otherwise rebuild from scratch (rm -rf first to clear residue).
+venv_is_complete() {
+    local v="$1"
+    [[ -x "$v/bin/python" ]] && [[ -f "$v/bin/activate" ]] && [[ -x "$v/bin/pip" ]]
+}
+
+if venv_is_complete "${VENV_DIR}"; then
+    echo "[setup_env] venv already exists and is complete at ${VENV_DIR}"
+elif [[ -e "${VENV_DIR}" ]]; then
+    echo "[setup_env] found incomplete/partial venv at ${VENV_DIR} -- rebuilding"
+    rm -rf "${VENV_DIR}"
     echo "[setup_env] creating venv at ${VENV_DIR} (with system site-packages)"
     create_venv_with_rescue "${PY_VER}" "${VENV_DIR}" \
         || { echo "[setup_env] could not create venv -- aborting." >&2; exit 4; }
 else
-    echo "[setup_env] venv already exists at ${VENV_DIR}"
+    echo "[setup_env] creating venv at ${VENV_DIR} (with system site-packages)"
+    create_venv_with_rescue "${PY_VER}" "${VENV_DIR}" \
+        || { echo "[setup_env] could not create venv -- aborting." >&2; exit 4; }
 fi
 
 # shellcheck disable=SC1091
