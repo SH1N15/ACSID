@@ -3,11 +3,13 @@
 #
 #   mamba env create -f acsid_amd/environment.yml
 #   conda activate acsid-amd
-#   # then install torch ROCm (torch is NOT pinned in this env.yml to avoid
-#   # conda pulling a CUDA/CPU build):
-#   pip install torch --index-url https://download.pytorch.org/whl/rocm6.2
+#   # torch is NOT installed by this env.yml on purpose -- the target cloud
+#   # image (rocm7.2.3-py312-torch2.11.0) already ships a matching torch+ROCm
+#   # in the base env. If your base env lacks torch, install it from the
+#   # PyTorch ROCm index matching your driver before the requirements below.
+#   pip install torch --index-url https://download.pytorch.org/whl/rocm6.x   # if needed
 #   pip install -r acsid_amd/requirements.txt
-#   python -c "import torch; print(torch.cuda.is_available())"
+#   python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
 #
 # Keeping this file minimal: conda for python + system libs, pip for the rest,
 # matching the venv path exactly.

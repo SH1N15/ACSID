@@ -48,18 +48,28 @@ if ! command -v "${PY_VER}" >/dev/null 2>&1; then
 fi
 
 # Sanity: the base image advertises a torch we can lean on. Fail loudly here
-# rather than silently pulling a wrong wheel below.
-"${PY_VER}" - <<'PY' || {
-    echo "[setup_env] system torch not importable under ${PY_VER}." >&2
-    echo "[setup_env] This script assumes the cloud image preinstalls torch+ROCm" >&2
-    echo "[setup_env] (target: rocm7.2.3-py312-torch2.11.0). If so, fix PY_VER." >&2
-    echo "[setup_env] If you instead need to install torch yourself, override the" >&2
-    echo "[setup_env] block in setup_env.sh (search: torch reinstall)." >&2
-    exit 5
-}
+# rather than silently pulling a wrong wheel below. Run the python probe, then
+# branch on its exit code (mixing a `<<'PY'` heredoc with `|| { ... }` makes
+# bash's parser treat the heredoc body as part of the failing branch and
+# explode; keep them separate).
+require_system_torch() {
+    "${PY_VER}" - <<'PY'
 import torch
 print("  -> system torch:", torch.__version__)
 PY
+}
+if ! require_system_torch >/tmp/acsid_amd_torch_probe.log 2>&1; then
+    cat /tmp/acsid_amd_torch_probe.log >&2
+    echo "[setup_env] system torch not importable under ${PY_VER}." >&2
+    echo "[setup_env] This script assumes the cloud image preinstalls torch+ROCm" >&2
+    echo "[setup_env] (target: rocm7.2.3-py312-torch2.11.0). If so, fix PY_VER." >&2
+    echo "[setup_env] If you instead need to install torch yourself, install it from" >&2
+    echo "[setup_env] the PyTorch ROCm index matching your driver BEFORE running this" >&2
+    echo "[setup_env] script; setup_env.sh picks it up via --system-site-packages." >&2
+    exit 5
+fi
+cat /tmp/acsid_amd_torch_probe.log
+rm -f /tmp/acsid_amd_torch_probe.log
 
 # 2) Create the venv (inherit system packages so torch+ROCm pass through).
 #    Debian/Ubuntu split the stdlib venv module into the `python3.X-venv` apt
