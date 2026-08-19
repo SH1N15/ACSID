@@ -1,8 +1,19 @@
-﻿# === ACSID AMD ROCm requirements ===
-# Install PyTorch ROCm version separately:
+# === ACSID AMD ROCm requirements ===
+#
+# torch is deliberately NOT listed: the target cloud image
+# (Ubuntu + ROCm7.2.3 + py312 + torch2.11.0, e.g. Aliyun DSW rocm7.2.3-py312-torch2.11.0)
+# already ships a matching torch+ROCm in the system python. setup_env.sh builds a
+# venv with --system-site-packages so the system torch passes through; only the
+# packages below are installed into the venv.
+#
+#   bash acsid_amd/setup_env.sh      (creates .venv-amd with inherited torch)
+#   source .venv-amd/bin/activate
+#   python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+#
+# If you are NOT on the preinstalled-torch image, install torch yourself first
+# from the PyTorch ROCm index matching your driver, e.g.:
 #   pip install torch --index-url https://download.pytorch.org/whl/rocm6.x
-# Then install the rest:
-#   pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/rocm6.x
+# then run setup_env.sh (it will find that torch via --system-site-packages).
 
 accelerate==1.10.1
 torcheval==0.0.7
