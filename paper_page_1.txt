@@ -1,0 +1,94 @@
+CONTENTS
+1
+Introduction
+3
+2
+Background and Related Work
+4
+2.1
+Generative Recommendation . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+4
+2.2
+LLM and RL
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+4
+3
+Modeling
+5
+3.1
+Task formulation
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+5
+3.2
+Item Tokenization . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+5
+3.3
+Alignment with LLMs
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+6
+3.4
+Reinforced Preference Optimization . . . . . . . . . . . . . . . . . . . . . . . . .
+6
+3.4.1
+Sampling Strategy
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+7
+3.4.2
+Reward Design . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+7
+4
+Training
+8
+5
+Evaluation
+8
+5.1
+Evaluation Setup
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+9
+5.2
+Scaling
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+9
+5.3
+Performance Comparison . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+9
+5.4
+Transferability . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+10
+5.5
+Ablation Study
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+10
+5.5.1
+Aligning Strategy . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+10
+5.5.2
+Sampling Strategy
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+11
+5.5.3
+Reward Design . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+11
+5.6
+Pre-trained LLM Impact
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+12
+6
+Conclusion
+12
+A Alignment Prompts
+18
+A.1
+Overview . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+18
+A.2
+Recommendation Tasks . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+18
+A.3 Alignment Tasks
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+18
+B
+Datasets
+19
+2

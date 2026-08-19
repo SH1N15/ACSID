@@ -1,0 +1,57 @@
+Generative recommendation models: HSTU (Zhai et al., 2024), TIGER (Rajput et al., 2023), LC-Rec
+(Zheng et al., 2024); (3) LLM-based recommendation models, including BigRec (Bao et al., 2023),
+D3 (Bao et al., 2024), S-DPO (Chen et al., 2024b).
+We evaluate MINIONEREC on the Industrial and Office benchmarks and summarize the outcomes in
+Table 1. Two key insights stand out:
+• Utility of LLM World Knowledge. Recommenders powered by LLMs, such as BIGRec
+and D3, clearly surpass traditional systems like GRU4Rec and Caser, showing that the broad
+knowledge embedded in LLMs translates into better recommendation accuracy.
+• Effectiveness of MiniOneRec. MiniOneRec goes a step further: by aligning the full
+generation process with the task objective and using reinforced preference optimization
+during RL, it consistently outperforms previous generative solutions across most reported
+metrics. Moreover, by operating in the compact SID space rather than on verbose textual
+titles, MiniOneRec requires substantially fewer context tokens and yields faster inference,
+translating into lower latency and smaller memory footprints at serving time.
+5.4
+TRANSFERABILITY
+We evaluate the out-of-distribution (OOD) robustness of MiniOneRec through an experiment
+we call SID pattern discovery.
+The model is trained exclusively on the Industrial domain
+and then deployed, without any further tuning, to the never-seen Office domain.
+Prior
+work (Jin et al., 2025; Yue et al., 2025; Yoshihara et al., 2025; Cheng et al., 2025) sug-
+gests that SFT may overfit to the source domain and hurt transfer, so we add an RL-
+only variant, MiniOneRec-w/ RL-OOD, that skips SFT entirely to emphasize generalization.
+Figure 3: Evaluation loss vs. SFT training epoch
+The comparison involves four systems:
+(1)
+GRU4Rec, trained and tested inside the Office
+domain; (2) Qwen-Text, which represents user
+histories as plain sentences and predicts the next
+item by its title with no additional fine-tuning; (3)
+Qwen-SID, which encodes the same history with
+SID tokens and produces the next SID with no
+additional fine-tuning; (4) MiniOneRec-w/ RL-
+OOD, trained via GRPO on Industrial only and
+evaluated on Office, to evaluate its OOD (out-of-
+distribution) performance.
+Table 2 reports the outcomes. Qwen-Text per-
+forms poorly, while Qwen-SID does noticeably
+better, indicating that a structured SID vocabulary
+is easier for an LLM to exploit. Although MiniOneRec-w/ RL-OOD falls short of the full MiniOneRec
+on in-domain scores, its reinforcement-only training grants excellent transfer, achieving competitive
+accuracy on the unseen catalog. Despite the substantial domain shift and possible semantic drift
+among SIDs, MiniOneRec successfully uncovers reusable interaction patterns, underscoring the
+framework’s promise for cross-domain recommendation.
+5.5
+ABLATION STUDY
+To validate the effectiveness of each component in the MiniOneRec framework, we compare it with
+the following alternative approaches.
+5.5.1
+ALIGNING STRATEGY
+To isolate the impact of each component, we compare the full MiniOneRec with three pared-down
+variants. (1) MINIONEREC–W/O ALIGN: removes any language–SID alignment and treats recom-
+mendation purely as a SID-to-SID task. (2) MINIONEREC–W/ SFTALIGN: keeps the alignment
+objective during SFT stage only, while RL uses SID data alone. (3) MINIONEREC–W/ RLALIGN:
+SFT relies solely on SID supervision, and the alignment tasks are introduced later in the RL stage.
+10

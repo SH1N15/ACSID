@@ -1,0 +1,54 @@
+Thus, negatives that the model was very confident about (low ρk) receive stronger penalties.
+The final reward combines rule-based and ranking components:
+R(ek, et) = Rrule(ek, et) + Rrank(ek, et),
+where the rule-based term is
+Rrule(ek, et) =
+1,
+ek = et,
+0,
+otherwise.
+The mixed reward discussed combines binary correctness with a soft ranking term, helping the
+LLM tell hard negatives apart. Yet recommendation data contain additional, under-utilized cues. To
+see whether such information can enhance or even replace the rule-based component in RLVR, we
+experiment with the following collaborative reward. Specifically, for every item suggested by the
+policy, we obtain its logit from a pre-trained collaborative-filtering model and pass that score back as
+reward, thereby injecting knowledge extracted from historical user–item interactions. MiniOneRec
+ultimately adopts the combined ranking-and-rule reward as its default choice.
+4
+TRAINING
+MiniOneRec first converts item text into discrete codes. Titles and descriptions are embedded by the
+Qwen3-Embedding-4B encoder, after which RQ-VAE performs residual quantization. This tokenizer
+is trained on a single GPU with a batch size of 20 480, a learning rate of 1 × 10−3, and 10,000
+training epochs. The resulting SID vocabulary is plugged into a Qwen2.5-Instruct backbone. SFT
+takes place on eight NVIDIA H100, each holding 128 samples. Training lasts up to ten epochs with
+early stopping (patience one epoch). The initial learning rate is 3 × 10−4 and follows a cosine decay
+schedule. Starting from the SFT checkpoint, we apply GRPO for two additional epochs while keeping
+the KL weight β unchanged. During roll-out, beam search with width 16 is adopted, so every input
+generates sixteen distinct candidate sequences.
+In the performance comparison with existing recommenders, conventional recommenders are trained
+with binary cross-entropy and the Adam optimizer; learning rates are chosen from {1e-2, 1e-3, 1e-4},
+and the weight-decay term is scanned over {1e-2, 1e-3, 1e-4, 1e-5, 1e-6}. The batch size is 1 024.
+For TIGER, we rely on a T5 encoder–decoder and reuse Qwen3-Embedding-4B for item embeddings.
+All LLM-powered systems, including ours, share the Qwen2.5-Instruct backbone and use AdamW.
+Batches contain 128 examples for SFT and preference alignment, and 512 samples for RL. The
+learning rate is 3 × 10−4 during SFT, while S-DPO and RL use 1 × 10−5. S-DPO runs for one epoch
+with β = 0.1 and samples three negative items; D3 tries interpolation factors α of 0.8, 0.9, and 1.0.
+5
+EVALUATION
+This section details our empirical study. We begin with a scaling investigation on two real-world
+benchmarks (Hou et al., 2024), examining how MiniOneRec’s loss curves change as model size
+grows. We then benchmark MiniOneRec against three groups of baselines: traditional sequential
+recommenders, SID-based generators, and recent LLM-driven systems. To evaluate the model’s
+capability for cross-domain recommendation generalization, we frame SID next-item prediction as
+a task of recommendation rule discovery and evaluate the model on domains that never appeared
+during training. Comprehensive ablation tests follow, which help us locate the parts of the framework
+that contribute most to the final score. Finally, we look into how the broad knowledge stored in
+pre-trained LLM weights affects generative recommendation. In summary, we study the following
+questions within this section:
+• How does the loss of MiniOneRec scale with different model size?
+• How does MiniOneRec perform in comparison to other baseline methods?
+• How does MiniOneRec perform under completely unseen domains?
+• How do the designed components contribute to MiniOneRec’s recommendation efficiency?
+• How do the pre-trained weights of the LLM influence the performance of generative recom-
+mendation?
+8

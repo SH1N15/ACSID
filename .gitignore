@@ -1,0 +1,18 @@
+# Python bytecode / caches
+__pycache__/
+*.pyc
+*.pyo
+
+# RQ-VAE training outputs (checkpoints + rolling saved models) — generated, not data
+MiniOneRec/rq/output/
+acsid/output/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# ZCode CLI workspace-local plans/memory — tooling-internal, not project content
+.zcode/

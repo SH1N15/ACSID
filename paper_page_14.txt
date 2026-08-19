@@ -1,0 +1,50 @@
+Wang-Cheng Kang and Julian J. McAuley. Self-attentive sequential recommendation. In ICDM,
+2018.
+Balázs Hidasi, Alexandros Karatzoglou, Linas Baltrunas, and Domonkos Tikk. Session-based
+recommendations with recurrent neural networks. In ICLR, 2016.
+Jiaxi Tang and Ke Wang. Personalized top-n sequential recommendation via convolutional sequence
+embedding. In WSDM, 2018.
+Jiancan Wu, Xiang Wang, Fuli Feng, Xiangnan He, Liang Chen, Jianxun Lian, and Xing Xie. Self-
+supervised graph learning for recommendation. In SIGIR ’21: The 44th International ACM SIGIR
+Conference on Research and Development in Information Retrieval, Virtual Event, Canada, July
+11-15, 2021. ACM, 2021.
+Hui Fang, Danning Zhang, Yiheng Shu, and Guibing Guo. Deep learning for sequential recommen-
+dation: Algorithms, influential factors, and evaluations. ACM Trans. Inf. Syst., 2020.
+Guorui Zhou, Xiaoqiang Zhu, Chengru Song, Ying Fan, Han Zhu, Xiao Ma, Yanghui Yan, Junqi Jin,
+Han Li, and Kun Gai. Deep interest network for click-through rate prediction. In Proceedings of
+the 24th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining, KDD
+2018, London, UK, August 19-23, 2018. ACM, 2018.
+Paul Covington, Jay Adams, and Emre Sargin. Deep neural networks for youtube recommenda-
+tions. In Proceedings of the 10th ACM Conference on Recommender Systems, Boston, MA, USA,
+September 15-19, 2016. ACM, 2016.
+Ruoxi Wang, Rakesh Shivanna, Derek Zhiyuan Cheng, Sagar Jain, Dong Lin, Lichan Hong, and
+Ed H. Chi. DCN V2: improved deep & cross network and practical lessons for web-scale learning
+to rank systems. In WWW ’21: The Web Conference 2021, Virtual Event / Ljubljana, Slovenia,
+April 19-23, 2021. ACM / IW3C2, 2021.
+Huifeng Guo, Ruiming Tang, Yunming Ye, Zhenguo Li, and Xiuqiang He. Deepfm: A factorization-
+machine based neural network for CTR prediction. In Proceedings of the Twenty-Sixth International
+Joint Conference on Artificial Intelligence, IJCAI 2017, Melbourne, Australia, August 19-25, 2017.
+ijcai.org, 2017.
+Xinchen Luo, Jiangxia Cao, Tianyu Sun, Jinkai Yu, Rui Huang, Wei Yuan, Hezheng Lin, Yichen
+Zheng, Shiyao Wang, Qigen Hu, Changqing Qiu, Jiaqi Zhang, Xu Zhang, Zhiheng Yan, Jingming
+Zhang, Simin Zhang, Mingxing Wen, Zhaojie Liu, Kun Gai, and Guorui Zhou. QARM: quantitative
+alignment multi-modal recommendation at kuaishou. CoRR, abs/2411.11739, 2024.
+Neil Zeghidour, Alejandro Luebs, Ahmed Omran, Jan Skoglund, and Marco Tagliasacchi. Sound-
+stream: An end-to-end neural audio codec. IEEE ACM Trans. Audio Speech Lang. Process., 30,
+2022.
+Shashank Rajput, Nikhil Mehta, Anima Singh, Raghunandan Hulikal Keshavan, Trung Vu, Lukasz
+Heldt, Lichan Hong, Yi Tay, Vinh Q. Tran, Jonah Samost, Maciej Kula, Ed H. Chi, and Mahesh
+Sathiamoorthy. Recommender systems with generative retrieval. In Advances in Neural Information
+Processing Systems 36: Annual Conference on Neural Information Processing Systems 2023,
+NeurIPS 2023, New Orleans, LA, USA, December 10 - 16, 2023, 2023.
+Bowen Zheng, Yupeng Hou, Hongyu Lu, Yu Chen, Wayne Xin Zhao, Ming Chen, and Ji-Rong Wen.
+Adapting large language models by integrating collaborative semantics for recommendation. In
+40th IEEE International Conference on Data Engineering, ICDE 2024, Utrecht, The Netherlands,
+May 13-16, 2024. IEEE, 2024.
+Haohao Qu, Wenqi Fan, Zihuai Zhao, and Qing Li. Tokenrec: Learning to tokenize ID for llm-based
+generative recommendation. CoRR, abs/2406.10450, 2024.
+Guorui Zhou, Jiaxin Deng, Jinghao Zhang, Kuo Cai, Lejian Ren, Qiang Luo, Qianqian Wang, Qigen
+Hu, Rui Huang, Shiyao Wang, Weifeng Ding, Wuchao Li, Xinchen Luo, Xingmei Wang, Zexuan
+Cheng, Zixing Zhang, Bin Zhang, Boxuan Wang, Chaoyi Ma, Chengru Song, Chenhui Wang,
+Di Wang, Dongxue Meng, Fan Yang, Fangyu Zhang, Feng Jiang, Fuxing Zhang, Gang Wang,
+15

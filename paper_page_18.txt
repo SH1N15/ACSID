@@ -1,0 +1,40 @@
+Figure 9: SID–Text Semantic Alignment Prompt2.
+2. Item Description Reconstruction. To ground SIDs in richer semantics, we ask the model
+to generate the item description from a single SID and, conversely, infer the SID from the
+description. We perform this task only during the SFT stage because the description space is
+large and diverse. Sample prompts is shown in the Figure 10.
+Figure 10: Item Description Reconstruction Prompt.
+3. User Preference Summarization. Given a sequence of SIDs, the model produces a short
+natural–language profile that summarizes the user’s interests. Because the raw dataset lacks
+explicit preference labels, we employ DEEPSEEK (DeepSeek-AI et al., 2024) to extract
+summaries from the item’s meta data and users’ textual reviews and use them as pseudo
+labels. This task, too, is restricted to the SFT stage due to the open-ended output space.
+Figure 11: User Preference Summarization Prompt.
+B
+DATASETS
+We evaluate our model on two Amazon Review subsets:
+Amazon Review subsets (Indus-
+trial_and_Scientific and Office_Products). To keep computational costs affordable, we follow the
+trimming strategy used in (Bao et al., 2024). The main steps are: (1) remove users and items with
+fewer than five interactions; (2) for Toys_and_Games, keep events from October 2016 to November
+2018; (3) for Industrial_and_Scientific, which is smaller, keep all events between October 1996 and
+November 2018; (4) truncate every user history to at most ten items; (5) finally, split each dataset
+chronologically into training, validation and test sets with an 8:1:1 ratio. Key statistics of the resulting
+training splits are reported in Table 4.
+Table 4: Statistics of datasets.
+Datasets
+Inductrial
+Office
+Items
+3,685
+3,459
+Train
+3,6259
+3,8924
+Valid
+4,532
+4,866
+Test
+4,533
+4,866
+19

@@ -1,0 +1,108 @@
+Table 2: Performance of MiniOneRec and its variants on completely unseen recommendation domains
+Dataset
+Method
+HR@3
+NDCG@3
+HR@5
+NDCG@5
+HR@10
+NDCG@10
+GRU4Rec
+0.0629
+0.0528
+0.0789
+0.0595
+0.1019
+0.0669
+Qwen-Text
+0.0031
+0.0021
+0.0044
+0.0026
+0.0057
+0.0030
+Qwen-SID
+0.0300
+0.0214
+0.0456
+0.0282
+0.0733
+0.0373
+Office
+MiniOneRec-w/ RL-OOD
+0.0553
+0.0433
+0.0691
+0.0489
+0.0892
+0.0553
+(a) Aligning Strategy.
+(b) Sampling Strategy.
+(c) Reward Design.
+Figure 4: Study on the effectiveness of MiniOneRec’s individual components. Figure 4a examines
+model performance under different alignment strategies; Figure 4b investigates various sampling
+strategies; Figure 4c evaluates the impact of alternative reward designs.
+Figure 4a summarizes the findings. The complete MiniOneRec, which maintains alignment through-
+out the whole pipeline, delivers the highest scores on every metric. The MINIONEREC–W/O ALIGN
+performs worst, indicating that grounding SID generation in world knowledge is essential.
+5.5.2
+SAMPLING STRATEGY
+We study how different roll-out methods affect MiniOneRec by switching only the trajectory generator
+while keeping everything else fixed: (1) MINIONEREC–COMMON relies on a plain Top-k decoder to
+produce exactly the required number of paths. (2) MINIONEREC–DYNAMIC follows our two-step
+sampler: it first draws one and a half times the budget, then retains as many unique items as possible
+for RL. The full model adopts beam search with width 16.
+As plotted in Figure 4b, the complete MiniOneRec delivers the highest accuracy while using roughly
+two-thirds of the samples needed by the dynamic variant, demonstrating that beam search is the most
+cost-efficient choice among the tested strategies.
+5.5.3
+REWARD DESIGN
+Three variants are compared: (1) MINIONEREC–W/ ACC that relies solely on a binary correctness
+signal; (2) MINIONEREC–W/ COLLABORATIVE that replaces the ranking term with logits taken
+from a frozen SASRec model so as to supply collaborative cues;
+As shown in the Figure 4c, the full MiniOneRec achieves the best overall performance. To be
+noticed, injecting the collaborative reward information into the RL process instead led to significant
+degradation. We hypothesize that, this stems from reward hacking: as recommendation accuracy
+declines, the reward continues to increase, revealing a misalignment between this collaborative reward
+signal and the true objective.
+Table 3: Performance of MiniOneRec initialized with pre-trained weights versus random initialization
+across two domains
+Datesets
+Methods
+HR@3
+NDCG@3
+HR@5
+NDCG@5
+HR@10
+NDCG@10
+Industrial
+MiniOneRec-scratch
+0.0757
+0.0672
+0.0891
+0.0726
+0.1134
+0.0804
+MiniOneRec
+0.1125
+0.0988
+0.1259
+0.1046
+0.1546
+0.1139
+Office
+MiniOneRec-scratch
+0.0959
+0.0855
+0.1057
+0.0896
+0.1196
+0.0941
+MiniOneRec
+0.1217
+0.1088
+0.1420
+0.1172
+0.1634
+0.1242
+11

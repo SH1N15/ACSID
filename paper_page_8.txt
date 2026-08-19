@@ -1,0 +1,181 @@
+Table 1: Performance of MiniOneRec Compared to Traditional Methods, Generative Methods, and
+LLM-based Methods
+Datasets
+Methods
+HR@3
+NDCG@3
+HR@5
+NDCG@5
+HR@10
+NDCG@10
+Industrial
+Traditional
+GRU4Rec
+0.0638
+0.0542
+0.0774
+0.0598
+0.0999
+0.0669
+Caser
+0.0618
+0.0514
+0.0717
+0.0555
+0.0942
+0.0628
+SASRec
+0.0790
+0.0700
+0.0909
+0.0748
+0.1088
+0.0806
+Generative
+HSTU
+0.0927
+0.0885
+0.1037
+0.0918
+0.1163
+0.0958
+TIGER
+0.0852
+0.0742
+0.1010
+0.0807
+0.1321
+0.0908
+LCRec
+0.0915
+0.0805
+0.1057
+0.0862
+0.1332
+0.0952
+LLM-based
+BIGRec
+0.0931
+0.0841
+0.1092
+0.0907
+0.1370
+0.0997
+D3
+0.1024
+0.0991
+0.1213
+0.0989
+0.1500
+0.1082
+S-DPO
+0.1032
+0.0906
+0.1238
+0.0991
+0.1524
+0.1082
+Ours
+MiniOneRec
+0.1143
+0.1011
+0.1321
+0.1084
+0.1586
+0.1167
+Office
+Traditional
+GRU4Rec
+0.0629
+0.0528
+0.0789
+0.0595
+0.1019
+0.0669
+Caser
+0.0748
+0.0615
+0.0865
+0.0664
+0.1093
+0.0737
+SASRec
+0.0861
+0.0769
+0.0949
+0.0805
+0.1120
+0.0858
+Generative
+HSTU
+0.1134
+0.1031
+0.1252
+0.1079
+0.1400
+0.1126
+TIGER
+0.0986
+0.0852
+0.1163
+0.0960
+0.1408
+0.1002
+LCRec
+0.0921
+0.0807
+0.1048
+0.0859
+0.1237
+0.0920
+LLM-based
+BIGRec
+0.1069
+0.0961
+0.1204
+0.1017
+0.1434
+0.1091
+D3
+0.1204
+0.1055
+0.1406
+0.1139
+0.1634
+0.1213
+S-DPO
+0.1169
+0.1033
+0.1356
+0.1110
+0.1587
+0.1255
+Ours
+MiniOneRec
+0.1217
+0.1088
+0.1420
+0.1172
+0.1634
+0.1242
+5.1
+EVALUATION SETUP
+Experiments are carried out on two real-world slices of the Amazon Review dataset (Hou et al.,
+2024), namely Office and Industrial. To measure top-K recommendation accuracy, we follow
+standard practice and compute Hit Rate (HR@K) as well as Normalized Discounted Cumulative
+Gain (NDCG@K).
+5.2
+SCALING
+We demonstrate the scaling capabilities of MiniOneRec, where the convergence loss decrease
+consistently as the model size increases. As Figure 1 shows, under the generative recommendation
+paradigm, there is a clear correlation between model size and loss. As the LLM scale increases,
+the convergence loss continues to decrease. Furthermore, Figure 3 tracks the evaluation loss on the
+SFT training set, recorded every 0.5 epoch. It is evident that models with larger parameter counts
+maintain lower evaluation losses throughout nearly the entire training process and converge more
+rapidly. Such a superior scaling effect demonstrates the potential of generative recommenders as the
+next-generation recommendation models.
+5.3
+PERFORMANCE COMPARISON
+Our baselines contain three categories: (1) Traditional recommendation models, including GRU4Rec
+(Hidasi et al., 2016), Caser (Tang and Wang, 2018), SASRec (Kang and McAuley, 2018); (2)
+9

@@ -1,0 +1,50 @@
+Guowang Zhang, Han Li, Hengrui Hu, Hezheng Lin, Hongtao Cheng, Hongyang Cao, Huanjie
+Wang, Jiaming Huang, Jiapeng Chen, Jiaqiang Liu, Jinghui Jia, Kun Gai, Lantao Hu, Liang Zeng,
+Liao Yu, Qiang Wang, Qidong Zhou, Shengzhe Wang, Shihui He, Shuang Yang, Shujie Yang, Sui
+Huang, Tao Wu, Tiantian He, Tingting Gao, Wei Yuan, Xiao Liang, Xiaoxiao Xu, Xugang Liu,
+Yan Wang, Yi Wang, Yiwu Liu, Yue Song, Yufei Zhang, Yunfan Wu, Yunfeng Zhao, and Zhanyu
+Liu. Onerec technical report. CoRR, abs/2506.13695, 2025a.
+Guorui Zhou, Hengrui Hu, Hongtao Cheng, Huanjie Wang, Jiaxin Deng, Jinghao Zhang, Kuo Cai,
+Lejian Ren, Lu Ren, Liao Yu, Pengfei Zheng, Qiang Luo, Qianqian Wang, Qigen Hu, Rui Huang,
+Ruiming Tang, Shiyao Wang, Shujie Yang, Tao Wu, Wuchao Li, Xinchen Luo, Xingmei Wang,
+Yi Su, Yunfan Wu, Zexuan Cheng, Zhanyu Liu, Zixing Zhang, Bin Zhang, Boxuan Wang, Chaoyi
+Ma, Chengru Song, Chenhui Wang, Chenglong Chu, Di Wang, Dongxue Meng, Dunju Zang, Fan
+Yang, Fangyu Zhang, Feng Jiang, Fuxing Zhang, Gang Wang, Guowang Zhang, Han Li, Honghui
+Bao, Hongyang Cao, Jiaming Huang, Jiapeng Chen, Jiaqiang Liu, Jinghui Jia, Kun Gai, Lantao Hu,
+Liang Zeng, Qiang Wang, Qidong Zhou, Rongzhou Zhang, Shengzhe Wang, Shihui He, Shuang
+Yang, Siyang Mao, Sui Huang, Tiantian He, Tingting Gao, Wei Yuan, Xiao Liang, Xiaoxiao Xu,
+Xugang Liu, Yan Wang, Yang Zhou, Yi Wang, Yiwu Liu, Yue Song, Yufei Zhang, Yunfeng Zhao,
+Zhixin Ling, and Ziming Li. Onerec-v2 technical report. CoRR, abs/2508.20900, 2025b.
+Zhihong Shao, Peiyi Wang, Qihao Zhu, Runxin Xu, Junxiao Song, Mingchuan Zhang, Y. K. Li,
+Y. Wu, and Daya Guo. Deepseekmath: Pushing the limits of mathematical reasoning in open
+language models. CoRR, 2024.
+Yupeng Hou, Jiacheng Li, Zhankui He, An Yan, Xiusi Chen, and Julian J. McAuley. Bridging
+language and items for retrieval and recommendation. CoRR, 2024.
+Yupeng Hou, An Zhang, Leheng Sheng, Zhengyi Yang, Xiang Wang, Tat-Seng Chua, and Julian J.
+McAuley. Generative recommendation models: Progress and directions. In WWW (Companion
+Volume), pages 13–16. ACM, 2025.
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz
+Kaiser, and Illia Polosukhin. Attention is all you need. In NIPS, 2017.
+Chao Feng, Wuchao Li, Defu Lian, Zheng Liu, and Enhong Chen. Recommender forest for efficient
+retrieval. In Advances in Neural Information Processing Systems 35: Annual Conference on Neural
+Information Processing Systems 2022, NeurIPS 2022, New Orleans, LA, USA, November 28 -
+December 9, 2022, 2022.
+Ye Wang, Jiahao Xun, Minjie Hong, Jieming Zhu, Tao Jin, Wang Lin, Haoyuan Li, Linjun Li, Yan
+Xia, Zhou Zhao, and Zhenhua Dong. EAGER: two-stream generative recommender with behavior-
+semantic collaboration. In Proceedings of the 30th ACM SIGKDD Conference on Knowledge
+Discovery and Data Mining, KDD 2024, Barcelona, Spain, August 25-29, 2024, pages 3245–3254.
+ACM, 2024.
+Leslie Pack Kaelbling, Michael L. Littman, and Andrew W. Moore. Reinforcement learning: A
+survey. J. Artif. Intell. Res., 1996.
+John Schulman, Filip Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov. Proximal policy
+optimization algorithms. CoRR, 2017.
+Rafael Rafailov, Archit Sharma, Eric Mitchell, Christopher D. Manning, Stefano Ermon, and Chelsea
+Finn. Direct preference optimization: Your language model is secretly a reward model. In
+Advances in Neural Information Processing Systems 36: Annual Conference on Neural Information
+Processing Systems 2023, NeurIPS 2023, New Orleans, LA, USA, December 10 - 16, 2023, 2023.
+Yuxin Chen, Junfei Tan, An Zhang, Zhengyi Yang, Leheng Sheng, Enzhi Zhang, Xiang Wang, and
+Tat-Seng Chua. On softmax direct preference optimization for recommendation. In NeurIPS,
+2024b.
+Jiayi Liao, Sihang Li, Zhengyi Yang, Jiancan Wu, Yancheng Yuan, and Xiang Wang. Llara: Aligning
+large language models with sequential recommenders. CoRR, abs/2312.02445, 2023.
+16

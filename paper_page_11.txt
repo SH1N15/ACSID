@@ -1,0 +1,31 @@
+5.6
+PRE-TRAINED LLM IMPACT
+To isolate the impact of pre-trained LLMs on generative recommendation, we instantiate two variants
+of MiniOneRec: one initialized from a general-purpose pre-trained LLM and the other trained from
+scratch with random weights. As shown in Table 3, Experiments on two benchmark datasets reveal
+a consistent pattern: the model that starts from pre-trained weights significantly outperforms its
+randomly initialized counterpart. We conjecture that (i) the general reasoning ability acquired during
+large-scale language pre-training allows the model to cast the next-SID prediction task as a problem
+of pattern discovery, as discussed in Section 5.4, and (ii) the factual knowledge already encoded in
+the LLM offers a head start in understanding the real-world semantics behind each SID, part of which
+can be transferred to the recommendation domain.
+6
+CONCLUSION
+This report introduces MiniOneRec, the first fully open-source generative recommendation frame-
+work, which to the best of our knowledge provides an end-to-end workflow spanning SID construction,
+SFT, and recommendation-oriented RL. By systematically validating scaling laws on public bench-
+marks, we demonstrate that larger generative recommenders achieve lower training and evaluation
+losses than their smaller counterparts, confirming the parameter–efficiency advantage of the SID-
+based paradigm over traditional embedding-centric models. Building on this insight, we introduce
+post-training techniques: (i) full-process SID alignment, which embeds SID tokens into the model
+vocabulary and imposes auxiliary alignment tasks across both SFT and RL stages, and (ii) reinforced
+preference optimization, which combines constrained decoding, beam-based sampling, and hybrid
+reward design. Extensive experiments on Amazon Review show that MiniOneRec consistently sur-
+passes strong sequential, generative, and LLM-based baselines, while maintaining a lean post-training
+footprint.
+Looking forward, we will keep maintaining and extending the MiniOneRec codebase. A public
+roadmap will guide future developments, and we warmly welcome community contributions. Planned
+updates include new datasets, more advanced tokenisation schemes, larger backbone models, and
+enhanced training pipelines, ensuring that MiniOneRec remains a solid reference platform for research
+and practice in large-scale generative recommendation.
+12

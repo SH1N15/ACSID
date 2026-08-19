@@ -1,0 +1,96 @@
+…
+…
+...
+User bought…
+… predict
+SID history
+…
+LLM
+…
+item1
+item3
+itemG
+…
+…
+Constrained
+BeamSearch
+Full-Process SID Alignment
+Next Item a4
+b16
+c12
+LLM
+Encoder
+RQ-VAE
+Embedding
+//
+Item info
+Item SID
+G different
+items
+ACC
+Reward
+Rank
+Reward
+0
+0
+1
+0
+0
+ra1
+ra2
+raG
+item2
+Valid SID
+GRPO
+Compt.
+Update
+Figure 2: MiniOneRec framework. RQ-VAE builds the item SID codebook. We then perform SFT to
+warm up the LLM and obtain an initial alignment. In RL, beam search with constrained decoding,
+thereby the model sequentially produces a ranked list of distinct, valid SIDs. GRPO updates the
+policy, and SID alignment is enforced end-to-end. This alignment objective is preserved throughout
+both the SFT and RL stages, fostering deeper semantic understanding.
+3
+MODELING
+In this section, we present the modeling strategies of MiniOneRec, as illustrated in Figure 2.
+MiniOneRec first converts the textual information into SIDs with the RQ-VAE tokenizer (Section 3.2).
+For better incorporating the huge world knowledge within LLMs (Liao et al., 2023), MiniOneRec
+further introduces the alignment with LLMs as one expansion of the original OneRec architecture
+(Section 3.3). During the training stage, MiniOneRec is optimized with next token prediction first,
+and then followed by reinforeced preference optimization (Section 3.4).
+3.1
+TASK FORMULATION
+We first formulate recommendation as a sequence–generation problem. For every user u, the items he
+or she has interacted with are sorted chronologically to form a sequence Hu =
+
+i1, i2, . . . , iT
+
+. Each
+item it in the sequence is encoded by a three–level structural ID,
+
+cit
+0 , cit
+1 , cit
+2
+	
+. Such structural IDs
+are typically called SIDs, which preserve hierarchical semantics through quantization techniques
+with semantic embeddings (Rajput et al., 2023).
+A generative policy πθ, implemented as an autoregressive model with parameters θ, reads the entire
+history Hu and is trained to predict the next item i+ that best matches the taste of user u among
+all candidates in the catalog. During inference, the model recursively produces item tokens; we
+keep the k most promising beams by the standard beam–search algorithm and return them as the
+recommendation list. Model performance is reported with the evaluation measures commonly adopted
+in generative recommendation.
+3.2
+ITEM TOKENIZATION
+In SID-style generative recommenders, the first task is to convert each item into a sequence of discrete
+tokens. Following the practices of TIGER (Rajput et al., 2023), we employ RQ-VAE (Zeghidour
+et al., 2022) for this purpose. Concretely, the pipeline is:
+1. For every item i, we concatenate its title and textual description to form a single sentence;
+2. This sentence is passed through a frozen text encoder (Sheng et al., 2025), producing a
+d-dimensional semantic vector x ∈Rd;
+3. Apply RQ-VAE to x. At each level l (0 ≤l < L) we have a separate codebook Cl =
+{e(l)
+k }K
+k=1, where K is the codebook size. We set L=3 and K=256, so each item is
+5

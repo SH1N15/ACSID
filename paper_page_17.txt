@@ -1,0 +1,31 @@
+A
+ALIGNMENT PROMPTS
+A.1
+OVERVIEW
+In this section we describe how we align the world knowledge of a LLM with the SID space so
+that the model can be directly used for generative recommendation.
+We append a three–layer codebook, each layer containing 256 unique SIDs, to the original tokenizer
+vocabulary. The inserted codes are treated as indivisible tokens, enabling the LLM to read or write
+SID sequences without any sub-word splitting. Then we introduce a set of auxiliary Alignment Tasks
+to bridge the semantic gap between the textual vocabulary and the newly added SIDs. A specialized
+Recommendation Tasks further teach the model to predict the SID of the next item given an user
+history.
+A.2
+RECOMMENDATION TASKS
+1. Generative Retrieval. The main task ofor generative recommendation. The LLM receives a
+chronologically ordered SID sequence that represents the user’s recent interactions, together
+with an explicit instruction such as “Recommend the next item.”, and is asked to predict the
+SID of the next item the user might engage with. A sample prompt is shown in the Figure 5.
+Figure 5: Generative Retrieval Prompt.
+2. Asymmetric Item Prediction. (a) Given a textual user history, predict the SID of the next
+item; (b) given a SID-only history, generate the textual title of the next item. Sample prompts
+are shown in the Figure 6 and Figure 7.
+Figure 6: Asymmetric Item Prediction Prompt1.
+Figure 7: Asymmetric Item Prediction Prompt2.
+A.3
+ALIGNMENT TASKS
+1. SID–Text Semantic Alignment. (a) Predict an item’s textual title from its SID; (b) predict
+the SID from the item’s textual title. Sample prompts are shown in the Figure 11 and Figure
+9.
+Figure 8: SID–Text Semantic Alignment Prompt1.
+18

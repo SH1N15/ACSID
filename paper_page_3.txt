@@ -1,0 +1,50 @@
+we shape the generation process itself: invalid tokens are masked to guarantee that every
+step produces a legal item, beam search is employed for efficient exploration of diverse
+candidates, and the reward signal combines rule-based accuracy with a ranking-aware
+penalty that pushes the model away from hard negatives. As a result, MiniOneRec offers
+a concise yet effective recipe for bringing RL with value-based ranking into generative
+recommendation, simultaneously improving candidate diversity and ranking fidelity.
+The remainder of this report is organized as follows: Section 2 reviews background on generative
+recommendation and the application of LLMs with RL in recommender systems. Section 3 presents
+our proposed MiniOneRec, including task formulation, item tokenization, and post-training pipeline.
+Section 4 describes the training details while Section 5 provides comprehensive experimental results.
+Section 6 concludes with discussions of future directions.
+2
+BACKGROUND AND RELATED WORK
+2.1
+GENERATIVE RECOMMENDATION
+In the last few years, formulating recommendation as a sequence generation problem has become a
+vibrant research direction (Rajput et al., 2023; Hou et al., 2025). Under this view, a recommender is
+trained to predict the tokens of the next item in an end-to-end manner, typically with a Transformer
+backbone (Vaswani et al., 2017). Such a design removes the rigid multi-stage “matching–ranking”
+pipeline in traditional retrieval-based recommender systems (Kang and McAuley, 2018; Hidasi et al.,
+2016) and therefore pushes the performance upper bound.
+Early explorations illustrate two key components: (1) turning an item into a discrete code (SIDs) and
+(2) letting the model produce the code. TIGER (Rajput et al., 2023) adopts RQ-VAE (Zeghidour
+et al., 2022) to map textual embeddings of titles and descriptions into SIDs. HSTU (Zhai et al.,
+2024) introduces a streaming architecture that is friendly to high-cardinality and non-stationary logs.
+LC-Rec (Zheng et al., 2024) aligns an LLM with the SIDs through multi-task learning so that the
+model can understand these symbols during generation.
+Subsequent work focuses on designing better codes. RecForest (Feng et al., 2022) clusters items
+via hierarchical k-means and uses the cluster indices as tokens. EAGER (Wang et al., 2024) and
+TokenRec (Qu et al., 2024) fuse collaborative and semantic evidence directly into the tokenizer.
+At industrial scale, generative recommenders have started to replace heavy cascade systems.
+MTGR (Wang et al., 2025) keeps the original DLRM features, adds user-level compression, and
+accelerates both training and inference. OneRec (Zhou et al., 2025b) reduces serving cost through a
+lazy decoder-only layout and stabilizes optimization with an improved RL algorithm. OnePiece (Dai
+et al., 2025) discovers that performing inference in the latent space can further improve generative
+recommendation performance.
+2.2
+LLM AND RL
+RL aims at maximizing cumulative reward through repeated interaction (Kaelbling et al., 1996). When
+fine-tuning LLMs, RL with Human Feedback (RLHF) has become a standard recipe; PPO (Schulman
+et al., 2017) is the most common optimizer but is memory-intensive for billion-scale parameters.
+To reduce cost, Direct Preference Optimization (DPO) (Rafailov et al., 2023) removes the separate
+value network and maximizes the log-likelihood gap between preferred and dispreferred outputs.
+S-DPO (Chen et al., 2024b) adapts this idea to recommendation by treating softmax-based negative
+sampling as implicit pairwise preference. Nevertheless, preference-based objectives are off-policy
+and may converge prematurely.
+Light-weight on-line methods have therefore been proposed. GRPO (Shao et al., 2024) normalizes
+rewards within a small batch of roll-outs and replaces the learned reward model by rule-based signals,
+achieving strong gains in maths and code generation.
+4

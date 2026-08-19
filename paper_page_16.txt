@@ -1,0 +1,36 @@
+Leheng Sheng, An Zhang, Yi Zhang, Yuxin Chen, Xiang Wang, and Tat-Seng Chua. Language
+representations can be what recommenders need: Findings and potentials. In ICLR, 2025.
+Xubin Ren, Wei Wei, Lianghao Xia, Lixin Su, Suqi Cheng, Junfeng Wang, Dawei Yin, and Chao
+Huang. Representation learning with large language models for recommendation. In Proceedings
+of the ACM web conference 2024, 2024.
+Qiying Yu, Zheng Zhang, Ruofei Zhu, Yufeng Yuan, Xiaochen Zuo, Yu Yue, Tiantian Fan, Gaohong
+Liu, Lingjun Liu, Xin Liu, Haibin Lin, Zhiqi Lin, Bole Ma, Guangming Sheng, Yuxuan Tong, Chi
+Zhang, Mofan Zhang, Wang Zhang, Hang Zhu, Jinhua Zhu, Jiaze Chen, Jiangjie Chen, Chengyi
+Wang, Hongli Yu, Weinan Dai, Yuxuan Song, Xiangpeng Wei, Hao Zhou, Jingjing Liu, Wei-Ying
+Ma, Ya-Qin Zhang, Lin Yan, Mu Qiao, Yonghui Wu, and Mingxuan Wang. DAPO: an open-source
+LLM reinforcement learning system at scale. CoRR, abs/2503.14476, 2025.
+Keqin Bao, Jizhi Zhang, Yang Zhang, Xinyue Huo, Chong Chen, and Fuli Feng. Decoding matters:
+Addressing amplification bias and homogeneity issue in recommendations for large language
+models. In Proceedings of the 2024 Conference on Empirical Methods in Natural Language
+Processing, EMNLP 2024, Miami, FL, USA, November 12-16, 2024. Association for Computational
+Linguistics, 2024.
+Junfei Tan, Yuxin Chen, An Zhang, Junguang Jiang, Bin Liu, Ziru Xu, Han Zhu, Jian Xu, Bo Zheng,
+and Xiang Wang. Reinforced preference optimization for recommendation. arXiv preprint
+arXiv:2510.12211, 2025.
+Keqin Bao, Jizhi Zhang, Wenjie Wang, Yang Zhang, Zhengyi Yang, Yancheng Luo, Fuli Feng, Xiang-
+nan He, and Qi Tian. A bi-step grounding paradigm for large language models in recommendation
+systems. CoRR, abs/2308.08434, 2023.
+Hangzhan Jin, Sicheng Lv, Sifan Wu, and Mohammad Hamdaqa. Rl is neither a panacea nor a mirage:
+Understanding supervised vs. reinforcement learning fine-tuning for llms, 2025.
+Yang Yue, Zhiqi Chen, Rui Lu, Andrew Zhao, Zhaokai Wang, Yang Yue, Shiji Song, and Gao Huang.
+Does reinforcement learning really incentivize reasoning capacity in llms beyond the base model?
+CoRR, abs/2504.13837, 2025.
+Hiroshi Yoshihara, Taiki Yamaguchi, and Yuichi Inoue. A practical two-stage recipe for mathemat-
+ical llms: Maximizing accuracy with SFT and efficiency with reinforcement learning. CoRR,
+abs/2507.08267, 2025.
+Zhoujun Cheng, Shibo Hao, Tianyang Liu, Fan Zhou, Yutao Xie, Feng Yao, Yuexin Bian, Yonghao
+Zhuang, Nilabjo Dey, Yuheng Zha, Yi Gu, Kun Zhou, Yuqi Wang, Yuan Li, Richard Fan, Jian-
+shu She, Chengqian Gao, Abulhair Saparov, Haonan Li, Taylor W. Killian, Mikhail Yurochkin,
+Zhengzhong Liu, Eric P. Xing, and Zhiting Hu. Revisiting reinforcement learning for LLM
+reasoning from A cross-domain perspective. CoRR, abs/2506.14965, 2025.
+17

@@ -1,0 +1,56 @@
+1
+INTRODUCTION
+The scaling behavior of recommendation models has recently attracted significant attention (Deng
+et al., 2025; Wang et al., 2025; Zhai et al., 2024; Zhang et al., 2024; Jiang et al., 2025; Zhu et al.,
+2025; Chen et al., 2024a; Dai et al., 2025), driven largely by the success of large language models
+(LLMs) in demonstrating predictable performance gains with increased model size (Brown et al.,
+2020; Achiam et al., 2023; DeepSeek-AI et al., 2024; Yang et al., 2024; Jiang et al., 2023; Dubey et al.,
+2024; Touvron et al., 2023; DeepSeek-AI et al., 2025). However, traditional recommendation models
+have struggled to exhibit similar scaling laws (Kang and McAuley, 2018; Hidasi et al., 2016; Tang
+and Wang, 2018; Wu et al., 2021; Fang et al., 2020). These systems typically allocate the majority
+of parameters to large embedding tables for storing user and item representations, while using only
+inner-product or shallow scoring networks for final predictions. Such an embedding-heavy design
+leads to performance plateaus: even as embedding dimensions or table sizes increase, improvements
+diminish quickly beyond moderate scales (Zhou et al., 2018; Covington et al., 2016; Wang et al.,
+2021; Guo et al., 2017).
+Generative recommendation offers a fundamental paradigm shift. By compressing items into se-
+quences of discrete Semantic IDs (SIDs) through quantization techniques (Luo et al., 2024; Zeghidour
+et al., 2022), it uses compact vocabularies and redirects the bulk of parameters toward deep autore-
+gressive Transformers that generate SID sequences (Rajput et al., 2023; Zheng et al., 2024; Qu et al.,
+2024; Deng et al., 2025; Dai et al., 2025). This design enables scaling behaviors more characteristic
+of language models, where increased depth and capacity translate to consistent performance gains
+(Deng et al., 2025).
+Recent industrial deployments have demonstrated the promise of this generative paradigm. OneRec
+(Deng et al., 2025; Zhou et al., 2025a) achieves significant improvements on Kuaishou’s platform
+with 400 million daily active users, while OneRec-V2 (Zhou et al., 2025b) further advances through
+lazy decoder architecture and preference alignment. OnePiece (Dai et al., 2025) integrates LLM-style
+context engineering and reasoning into both retrieval and ranking models of industrial cascaded
+pipelines. However, these results rely on massive proprietary datasets and remain closed-source,
+leaving critical questions unanswered for the research community:
+• Do the scaling advantages of generative recommendation transfer to public datasets?
+• What is the minimal post-training recipe needed to achieve strong performance?
+In this work, we present MiniOneRec, the first fully open-source framework for generative recom-
+mendation, which provides an end-to-end workflow encompassing SID generation, model supervised
+fine-tuning (SFT), and recommendation-driven reinforcement learning (RL). The release includes
+complete source code, reproducible training pipelines, and publicly available model checkpoints. We
+implement SID construction using residual quantized variational autoencoder (RQ-VAE) (Zeghidour
+et al., 2022), in line with prior work such as TIGER (Rajput et al., 2023; Deng et al., 2025). We
+post-train Qwen-based (backbone) generative models at multiple scales, ranging from 0.5B to 7B
+parameters, on public benchmarks from the Amazon Review Dataset. Following OneRec’s successful
+two-stage post-training pipeline, we adopt SFT on user-item interaction sequences, followed by group
+relative policy gradient (GRPO) (DeepSeek-AI et al., 2025; Shao et al., 2024) for alignment. The
+main contributions of our work are summarized as follows:
+• Validating the Scaling Laws of Generative Recommendation: We present the first
+systematic investigation of how generative recommendation models scale on public data,
+to the best of our knowledge. Specifically, we train four MiniOneRec variants, spanning
+0.5 B to 7 B parameters, on the Amazon Review corpus (Hou et al., 2024) with identical data
+splits and hyper-parameter settings. Both the final training loss and the held-out evaluation
+loss consistently decrease as model size grows (see Figures 1 Left and 3), highlighting the
+superior parameter efficiency of the generative paradigm.
+• Optimizing Post-training Strategies for Generative Recommendation: We design a
+lightweight yet comprehensive post-training pipeline that tightly couples full-process SID
+alignment with reinforced preference optimization. First, we verify the influence of world
+knowledge on the model’s generative recommendation performance (see Figure 1 Right)
+and augment the vocabulary with dedicated SID tokens and enforce auxiliary alignment
+objectives throughout the two-stage optimization process. Second, during the RL phase,
+3
