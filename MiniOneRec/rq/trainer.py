@@ -156,10 +156,11 @@ class Trainer(object):
         total_recon_loss = 0
 
         if self._full_batch is not None:
-            # Fast path: full dataset resident on GPU, no DataLoader per-step overhead
-            z_i = self._full_batch
+            # Fast path: raw data resident on GPU; recompute z_i each step so
+            # fixed/adaptive fusion rebuilds the autograd graph through P.
             n_steps = len(train_data)
             for _ in range(n_steps):
+                z_i = self._prepare_input(self._full_batch)
                 self.optimizer.zero_grad()
                 out, rq_loss, indices = self.model(z_i)
                 loss, loss_recon = self.model.compute_loss(out, rq_loss, xs=z_i)
@@ -207,7 +208,7 @@ class Trainer(object):
 
         if self._full_batch is not None:
             # Fast path: index the resident full batch directly
-            z_i = self._full_batch
+            z_i = self._prepare_input(self._full_batch)
             num_sample = z_i.size(0)
             indices = self.model.get_indices(z_i)
             indices = indices.view(-1, indices.shape[-1]).cpu().numpy()
@@ -278,16 +279,27 @@ class Trainer(object):
 
         cur_eval_step = 0
 
-        # Fast path: if the entire dataset fits in one batch, materialize the
-        # prepared input once and keep it on GPU for all epochs. This bypasses
-        # the per-epoch DataLoader/collate/.to() overhead that dominates wall
-        # time on small datasets (e.g. 3686 items on MI300X).
+        # Fast path: if the entire dataset fits in one batch, cache the raw
+        # batch on GPU once and reuse it every epoch, bypassing the
+        # DataLoader/collate/.to() overhead that dominates wall time on small
+        # datasets. We cache the RAW batch (not _prepare_input's output)
+        # because fixed/adaptive fusion makes z_i depend on P's parameters,
+        # so z_i must be recomputed each epoch to build a fresh autograd graph.
         if hasattr(data, 'dataset') and hasattr(data, 'batch_size') \
                 and len(data.dataset) <= data.batch_size:
             for batch in data:  # exactly one batch
-                self._full_batch = self._prepare_input(batch)
+                if isinstance(batch, dict):
+                    self._full_batch = {
+                        "z_text": batch["z_text"].to(self.device),
+                        "z_cf": batch["z_cf"].to(self.device),
+                        "alpha": batch["alpha"].to(self.device),
+                    }
+                else:
+                    self._full_batch = batch.to(self.device)
                 break
-            print(f"[Trainer] fast path enabled: {self._full_batch.shape[0]} items "
+            n = self._full_batch["z_text"].size(0) if isinstance(self._full_batch, dict) \
+                else self._full_batch.size(0)
+            print(f"[Trainer] fast path enabled: {n} items "
                   f"resident on {self.device}, bypassing DataLoader")
 
         for epoch_idx in range(self.epochs):
