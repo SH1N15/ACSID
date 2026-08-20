@@ -40,11 +40,6 @@ import random
 from datasets import Dataset as HFDataset
 from torch.utils.data import ConcatDataset
 
-# --- ROCm matmul/conv autotune (safe for fixed-shape training) ---
-torch.backends.cudnn.benchmark = True
-torch.backends.cuda.matmul.allow_tf32 = True
-torch.backends.cudnn.allow_tf32 = True
-
 
 class TokenExtender:
     def __init__(self, data_path, dataset, index_file=".index.json"):

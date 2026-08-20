@@ -73,8 +73,7 @@ for mode in text fixed adaptive; do
             --seed ${seed} \
             --sid_index_path ${SID_INDEX[$mode]} \
             --item_meta_path ${ITEM_META} \
-            --freeze_LLM False \
-            --group_by_length True
+            --freeze_LLM False
     done
 done
 fi
