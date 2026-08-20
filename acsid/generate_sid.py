@@ -42,7 +42,7 @@ from acsid.adaptive_fusion import compute_item_freq, compute_alpha  # noqa: E402
 
 def _run(cmd, cwd=None, env=None):
     print("[run] " + " ".join(str(c) for c in cmd), flush=True)
-    return subprocess.run([str(c) for c in cmd], cwd=cwd, env=env)
+    return subprocess.run([str(c) for c in cmd], cwd=cwd, env=env, check=True)
 
 
 def _latest_best_collision(ckpt_root: str) -> str:
