@@ -173,7 +173,14 @@ def train(
         if new_tokens:
             print(f"Adding {len(new_tokens)} new tokens to tokenizer")
             tokenizer.add_tokens(new_tokens)
-            model.resize_token_embeddings(len(tokenizer))
+            # transformers 4.57 added mean_resizing: a covariance-PSD check
+            # via torch.linalg.cholesky_ex, which fails on ROCm torch (no LAPACK).
+            # mean_resizing=False skips that check and uses plain mean init.
+            try:
+                model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
+            except TypeError:
+                # older transformers: no mean_resizing kwarg
+                model.resize_token_embeddings(len(tokenizer))
 
     # Freeze LLM parameters if required
     if freeze_LLM:
