@@ -144,11 +144,12 @@ def main():
     args = ap.parse_args()
 
     src = args.src_dir
-    # locate source CSV/info by glob so we inherit the exact basenames
-    src_train = _find_single(os.path.join(src, "train", "*.csv"), "train csv")
-    src_valid = _find_single(os.path.join(src, "valid", "*.csv"), "valid csv")
-    src_test = _find_single(os.path.join(src, "test", "*.csv"), "test csv")
-    src_info = _find_single(os.path.join(src, "info", "*.txt"), "info txt")
+    # locate source CSV/info by glob so we inherit the exact basenames;
+    # filter by dataset name prefix to avoid matching Office_Products etc.
+    src_train = _find_single(os.path.join(src, "train", f"{args.dataset}*11.csv"), "train csv")
+    src_valid = _find_single(os.path.join(src, "valid", f"{args.dataset}*11.csv"), "valid csv")
+    src_test = _find_single(os.path.join(src, "test", f"{args.dataset}*11.csv"), "test csv")
+    src_info = _find_single(os.path.join(src, "info", f"{args.dataset}*11.txt"), "info txt")
     csv_basename = os.path.basename(src_train)
     info_basename = os.path.basename(src_info)
 
