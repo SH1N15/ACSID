@@ -62,6 +62,12 @@ class Trainer(object):
         if self.fusion is not None:
             self.fusion = self.fusion.to(self.device)
 
+        # Fast path: when the whole dataset fits in one batch, cache the
+        # prepared input on GPU once and reuse it every epoch, bypassing the
+        # DataLoader/collate/.to() overhead that dominates per-epoch time on
+        # small datasets. Set in fit(); None means use the normal DataLoader.
+        self._full_batch = None
+
     def _build_optimizer(self):
 
         params = list(self.model.parameters())
@@ -148,6 +154,24 @@ class Trainer(object):
 
         total_loss = 0
         total_recon_loss = 0
+
+        if self._full_batch is not None:
+            # Fast path: full dataset resident on GPU, no DataLoader per-step overhead
+            z_i = self._full_batch
+            n_steps = len(train_data)
+            for _ in range(n_steps):
+                self.optimizer.zero_grad()
+                out, rq_loss, indices = self.model(z_i)
+                loss, loss_recon = self.model.compute_loss(out, rq_loss, xs=z_i)
+                self._check_nan(loss)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self._clip_params, 1.0)
+                self.optimizer.step()
+                self.scheduler.step()
+                total_loss += loss.item()
+                total_recon_loss += loss_recon.item()
+            return total_loss, total_recon_loss
+
         iter_data = tqdm(
                     train_data,
                     total=len(train_data),
@@ -177,6 +201,21 @@ class Trainer(object):
         self.model.eval()
         if self.fusion is not None:
             self.fusion.eval()
+
+        indices_set = set()
+        num_sample = 0
+
+        if self._full_batch is not None:
+            # Fast path: index the resident full batch directly
+            z_i = self._full_batch
+            num_sample = z_i.size(0)
+            indices = self.model.get_indices(z_i)
+            indices = indices.view(-1, indices.shape[-1]).cpu().numpy()
+            for index in indices:
+                code = "-".join([str(int(_)) for _ in index])
+                indices_set.add(code)
+            collision_rate = (num_sample - len(indices_set)) / num_sample
+            return collision_rate
 
         iter_data =tqdm(
                 valid_data,
@@ -238,6 +277,18 @@ class Trainer(object):
     def fit(self, data):
 
         cur_eval_step = 0
+
+        # Fast path: if the entire dataset fits in one batch, materialize the
+        # prepared input once and keep it on GPU for all epochs. This bypasses
+        # the per-epoch DataLoader/collate/.to() overhead that dominates wall
+        # time on small datasets (e.g. 3686 items on MI300X).
+        if hasattr(data, 'dataset') and hasattr(data, 'batch_size') \
+                and len(data.dataset) <= data.batch_size:
+            for batch in data:  # exactly one batch
+                self._full_batch = self._prepare_input(batch)
+                break
+            print(f"[Trainer] fast path enabled: {self._full_batch.shape[0]} items "
+                  f"resident on {self.device}, bypassing DataLoader")
 
         for epoch_idx in range(self.epochs):
             # train
