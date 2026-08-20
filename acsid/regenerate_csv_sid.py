@@ -138,7 +138,7 @@ def main():
     ap.add_argument("--new_index", required=True, help="path to the new index.json")
     ap.add_argument("--out_dir", required=True, help="output data root (train/ valid/ test/ info/ created here)")
     ap.add_argument("--item_json", default=None,
-                    help="path to item.json (default: {src_dir}/{item_basename}); used for info title column")
+                    help="path to item.json (default: {src_dir}/index/{dataset}.item.json); used for info title column")
     ap.add_argument("--dataset", default="Industrial_and_Scientific",
                     help="dataset name used to locate item.json and CSV/info basenames")
     args = ap.parse_args()
@@ -153,7 +153,7 @@ def main():
     csv_basename = os.path.basename(src_train)
     info_basename = os.path.basename(src_info)
 
-    item_json = args.item_json or os.path.join(src, f"{args.dataset}.item.json")
+    item_json = args.item_json or os.path.join(src, "index", f"{args.dataset}.item.json")
     with open(args.new_index, "r") as f:
         index = json.load(f)
     with open(item_json, "r") as f:
