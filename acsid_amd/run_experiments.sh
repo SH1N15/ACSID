@@ -24,6 +24,12 @@ BASE_MODEL="${BASE_MODEL:-/path/to/Qwen2.5-3B-Base}"
 DATASET="Industrial_and_Scientific"
 ITEM_META="./data/Amazon/index/${DATASET}.item.json"
 
+# Seeds and phases are env-overridable so you can run a subset, e.g.:
+#   PHASES="sft eval" SEEDS_STR="42" bash acsid_amd/run_experiments.sh
+# Default reproduces the full 6-SFT + 4-GRPO matrix.
+read -ra SEEDS <<< "${SEEDS_STR:-42 123}"
+PHASES="${PHASES:-sft grpo}"
+
 declare -A SID_INDEX=(
     ["text"]="./data/Amazon/index/${DATASET}.index.text.json"
     ["fixed"]="./data/Amazon/index/${DATASET}.index.fixed.json"
@@ -36,11 +42,10 @@ declare -A DATA_DIR=(
     ["adaptive"]="./data/Amazon/adaptive"
 )
 
-SEEDS=(42 123)
-
 # -------------------------------------------------------
-# SFT: 3 methods x 2 seeds = 6 runs
+# SFT: 3 methods x N seeds
 # -------------------------------------------------------
+if [[ "${PHASES}" == *"sft"* ]]; then
 echo "===== SFT PHASE ====="
 for mode in text fixed adaptive; do
     for seed in "${SEEDS[@]}"; do
@@ -67,10 +72,47 @@ for mode in text fixed adaptive; do
             --freeze_LLM False
     done
 done
+fi
 
 # -------------------------------------------------------
-# GRPO: 2 methods (text, adaptive) x 2 seeds = 4 runs
+# EVAL: evaluate.py (constrained beam search) + calc.py (HR/NDCG)
+# Runs after SFT so each checkpoint is scored immediately.
 # -------------------------------------------------------
+if [[ "${PHASES}" == *"eval"* ]]; then
+echo "===== EVAL PHASE ====="
+mkdir -p results
+for mode in text fixed adaptive; do
+    for seed in "${SEEDS[@]}"; do
+        echo "--- EVAL SFT: mode=${mode} seed=${seed} ---"
+        ckpt="output_dir/sft_${mode}_seed${seed}"
+        test_file=$(ls -f ${DATA_DIR[$mode]}/test/${DATASET}*11.csv)
+        info_file=$(ls -f ${DATA_DIR[$mode]}/info/${DATASET}*.txt)
+        result_json="results/eval_sft_${mode}_seed${seed}.json"
+
+        python evaluate.py \
+            --base_model "${ckpt}" \
+            --info_file "${info_file}" \
+            --category ${DATASET} \
+            --test_data_path "${test_file}" \
+            --result_json_data "${result_json}" \
+            --num_beams 50 \
+            --max_new_tokens 256 \
+            --length_penalty 0.0 \
+            --batch_size 8 \
+            --seed ${seed}
+
+        echo "--- CALC: mode=${mode} seed=${seed} ---"
+        python calc.py \
+            --path "${result_json}" \
+            --item_path "${info_file}"
+    done
+done
+fi
+
+# -------------------------------------------------------
+# GRPO: 2 methods (text, adaptive) x N seeds
+# -------------------------------------------------------
+if [[ "${PHASES}" == *"grpo"* ]]; then
 echo "===== GRPO PHASE ====="
 for mode in text adaptive; do
     for seed in "${SEEDS[@]}"; do
@@ -110,5 +152,6 @@ for mode in text adaptive; do
             --item_meta_path ${ITEM_META}
     done
 done
+fi
 
 echo "===== ALL DONE ====="
