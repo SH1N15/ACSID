@@ -13,6 +13,8 @@ for _p in (os.path.join(_PROJECT_ROOT, "MiniOneRec"), _PROJECT_ROOT):
 # --- ROCm / MI300X environment tuning (must be set before torch import) ---
 os.environ.setdefault("PYTORCH_HIP_ALLOC_CONF", "max_split_size_mb:512")
 # Reduce memory fragmentation for large-batch training on 192GB HBM3.
+os.environ.setdefault("WANDB_MODE", "disabled")
+# wandb prompts for an API key in non-interactive runs and blocks training.
 
 from typing import List
 import numpy as np
