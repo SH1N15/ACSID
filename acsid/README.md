@@ -6,6 +6,13 @@ instead of at the RL reward stage. The downstream SFT / GRPO / constrained
 decoding are untouched — only the SID construction changes. See
 `PROJECT_PLAN.md` for the full design.
 
+Fusion paradigm (v2, 2026-08-20): **residual injection** —
+`z_i = z_text + α_i · ‖z_text‖ · Normalize(P(z_cf))`. The earlier spherical
+convex-combination (triple L2-normalize) collapsed the RQ-VAE codebook
+distribution (collision 0.65–0.85 vs upstream 0.004) and was replaced;
+`z_text` is now never normalized, so the text baseline is byte-identical to
+upstream MiniOneRec, and α=0 reproduces pure text exactly.
+
 ---
 
 ## What this phase builds
@@ -15,9 +22,9 @@ layers, AdamW, epochs, seed) and differ only in the RQ-VAE input:
 
 | mode     | input to RQ-VAE                                   | P trained? |
 |----------|---------------------------------------------------|------------|
-| `text`   | `L2norm(z_text)`                                  | no         |
-| `fixed`  | `L2norm[(1-α)·L2norm(z_text) + α·L2norm(P(z_cf))]`, α=`alpha_max` constant | yes |
-| `adaptive` | same, but `α_i = alpha_max·min(1, log(1+n_i)/log(1+n_ref))`; cold-start items α=0 → pure text | yes |
+| `text`   | `z_text` (raw — matches upstream, no normalization) | no         |
+| `fixed`  | `z_text + α·‖z_text‖·Normalize(P(z_cf))`, α=`alpha_max` constant | yes |
+| `adaptive` | same, but `α_i = alpha_max·min(1, log(1+n_i)/log(1+n_ref))`; cold-start items α=0 → byte-identical to text | yes |
 
 `n_i` = item interaction count over **train only** (no leakage, plan §12.1);
 `n_ref` = median of nonzero item frequencies; `alpha_max=0.3`.
@@ -28,8 +35,8 @@ layers, AdamW, epochs, seed) and differ only in the RQ-VAE input:
 acsid/
 ├── __init__.py
 ├── item2vec.py            # Word2Vec SGNS over train sequences -> cf.npy [N,256]
-├── adaptive_fusion.py     # compute_item_freq / compute_alpha / FusionModule(P + L2norm sum)
-├── generate_sid.py        # end-to-end orchestrator (run on cloud A10)
+├── adaptive_fusion.py     # compute_item_freq / compute_alpha / FusionModule(P + residual injection)
+├── generate_sid.py        # end-to-end orchestrator (run on cloud GPU)
 ├── regenerate_csv_sid.py  # rewrite SID columns of existing CSVs + info/*.txt (no .inter)
 └── analyze_collision.py   # collision rate / unique ratio across the 3 variants
 experiments/
@@ -63,7 +70,7 @@ alpha.npy  ──┘                                              │
 
 ---
 
-## Running on the cloud A10
+## Running on the cloud GPU (MI300X on this branch; A10 on main)
 
 All runs execute from `MiniOneRec/rq/` (same cwd convention as `rqvae.sh`).
 **Do not run locally on Windows** — there is no GPU and no python env here.
