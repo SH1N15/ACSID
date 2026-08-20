@@ -1,4 +1,4 @@
-"""ACSID end-to-end orchestrator (run on the cloud A10).
+"""ACSID end-to-end orchestrator (run on the cloud GPU, cwd = MiniOneRec/rq/).
 
 Assumes cwd = MiniOneRec/rq/ (same convention as rqvae.sh), so all relative
 paths resolve against that directory:
@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import glob
 import os
+import shutil
 import subprocess
 import sys
 
@@ -53,8 +54,22 @@ def _latest_best_collision(ckpt_root: str) -> str:
     return hits[-1]
 
 
-def ensure_item2vec(train_csv: str, cf_npy: str, cf_dim: int, epochs: int, seed: int, n_items=None):
-    if os.path.exists(cf_npy):
+def _clean_stale_ckpt_dirs(ckpt_dir: str) -> None:
+    """Remove leftover timestamp subdirs before a fresh training run.
+
+    _latest_best_collision picks the newest best_collision_model.pth by
+    mtime, so a leftover directory from an aborted run could beat the ckpt
+    we are about to train and get picked instead.
+    """
+    for sub in glob.glob(os.path.join(ckpt_dir, "*")):
+        if os.path.isdir(sub):
+            print(f"[generate_sid] removing stale ckpt dir: {sub}", flush=True)
+            shutil.rmtree(sub)
+
+
+def ensure_item2vec(train_csv: str, cf_npy: str, cf_dim: int, epochs: int, seed: int, n_items=None,
+                    force: bool = False):
+    if os.path.exists(cf_npy) and not force:
         print(f"[generate_sid] cf.npy exists, skipping item2vec: {cf_npy}")
         return
     from acsid.item2vec import train_item2vec
@@ -68,8 +83,8 @@ def ensure_item2vec(train_csv: str, cf_npy: str, cf_dim: int, epochs: int, seed:
     )
 
 
-def ensure_alpha(train_csv: str, alpha_npy: str, alpha_max: float):
-    if os.path.exists(alpha_npy):
+def ensure_alpha(train_csv: str, alpha_npy: str, alpha_max: float, force: bool = False):
+    if os.path.exists(alpha_npy) and not force:
         print(f"[generate_sid] alpha.npy exists, skipping: {alpha_npy}")
         return
     freq = compute_item_freq(train_csv)
@@ -105,6 +120,8 @@ def parse_args():
                     choices=["text", "fixed", "adaptive"])
     ap.add_argument("--skip_item2vec", action="store_true")
     ap.add_argument("--skip_alpha", action="store_true")
+    ap.add_argument("--force_regen", action="store_true",
+                    help="regenerate cf.npy/alpha.npy even if they already exist")
     ap.add_argument("--rqvae_py", default="rqvae.py", help="filename of the rqvae driver (relative to cwd)")
     ap.add_argument("--gen_indices_py", default="generate_indices.py")
     ap.add_argument("--regen_py", default=None,
@@ -139,14 +156,15 @@ def main():
     if args.skip_item2vec:
         print("[generate_sid] --skip_item2vec; assuming cf.npy is ready")
     else:
-        ensure_item2vec(train_csv, cf_npy, args.cf_dim, args.item2vec_epochs, args.seed)
+        ensure_item2vec(train_csv, cf_npy, args.cf_dim, args.item2vec_epochs, args.seed,
+                        force=args.force_regen)
 
     # 2) per-item adaptive alpha (even when 'fixed' is in modes: fixed path
     #    does not read alpha_path, so this only needs to exist for 'adaptive')
     if args.skip_alpha:
         print("[generate_sid] --skip_alpha; assuming alpha.npy is ready")
     else:
-        ensure_alpha(train_csv, alpha_npy, args.alpha_max)
+        ensure_alpha(train_csv, alpha_npy, args.alpha_max, force=args.force_regen)
 
     regen_py = args.regen_py or os.path.join(_PROJECT_ROOT, "acsid", "regenerate_csv_sid.py")
     if not os.path.isabs(regen_py):
@@ -160,6 +178,7 @@ def main():
 
         ckpt_dir = os.path.join(".", "output", args.dataset, mode)  # relative to cwd=rq/
         os.makedirs(ckpt_dir, exist_ok=True)
+        _clean_stale_ckpt_dirs(ckpt_dir)
         index_out = os.path.join(index_dir, f"{args.dataset}.index.{mode}.json")
 
         rq_cmd = [
