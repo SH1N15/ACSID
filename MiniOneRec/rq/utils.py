@@ -33,5 +33,9 @@ def get_local_time():
     return cur
 
 def delete_file(filename):
+    if isinstance(filename, (list, tuple)):
+        # The trainer's save queues store (score, path) tuples;
+        # if a tuple leaks through, extract the second element.
+        filename = filename[-1]
     if os.path.exists(filename):
         os.remove(filename)
