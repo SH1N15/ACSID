@@ -16,12 +16,11 @@ ACSID（Adaptive Collaborative Semantic ID）：
 产出三套 SID（`text` / `fixed` / `adaptive`），目标是证明 **ACSID 降低碰撞率** 且 **优于 text-only**。
 完整方法见 `PROJECT_PLAN.md`（A10 版）与 `acsid_amd/PLAN_AMD.md`（AMD 版）。
 
-核心公式：
+核心公式（v2 残差注入，2026-08-20 重构，见 §5 决策记录）：
 ```
 alpha_i = alpha_max * min(1, log(1+n_i) / log(1+n_ref))   # adaptive
-z_i = Normalize[(1-alpha_i) * Normalize(z_text) + alpha_i * Normalize(P(z_cf))]
+z_i = z_text + alpha_i * ||z_text|| * Normalize(P(z_cf))  # text 模式: z_i = z_text（原始，等价 upstream）
 ```
-（`Normalize(z_text)` 这一处当前在 `trainer._prepare_input` 中实现 —— **见 §5 待决问题**）
 
 ## 3. 硬件 / 环境
 
@@ -37,7 +36,7 @@ z_i = Normalize[(1-alpha_i) * Normalize(z_text) + alpha_i * Normalize(P(z_cf))]
 ```
 acsid/                      # 与 main 共享的核心创新代码
   item2vec.py               # Item2Vec/SGNS，仅 train，CPU
-  adaptive_fusion.py        # compute_alpha + FusionModule(P + L2norm 加权)
+  adaptive_fusion.py        # compute_alpha + FusionModule(P + 残差注入)
   generate_sid.py           # 端到端编排（RQVAE+P -> 3 套 index.json -> 重写 CSV，check=True fail-fast）
   regenerate_csv_sid.py     # 绕开 .inter，只重写 CSV SID 列 + info/*.txt
   analyze_collision.py      # 碰撞率 / Unique SID Ratio 对比
@@ -53,18 +52,20 @@ MiniOneRec/rq/              # RQ-VAE 改动（datasets/rqvae/trainer/generate_in
 experiments/                # run_phase2_sid.sh + results/collision.json
 ```
 
-## 5. 待决问题（接手核心任务）
+## 5. 待决问题 → 已决策（2026-08-20）
 
-### 碰撞率异常高
-- **现象**：text 模式 5000 epochs 碰撞率停在 ~0.79（官方 upstream 是 0.004）；200-epoch 版本 level-0 仅用 3/256 个 token；recon loss 已到 0.0000（过拟合）→ 判断为**分布退化**而非欠训。
-- **疑似根因**：为三组公平性，当前代码对所有模式（含 text）在 `trainer._prepare_input` 里对 `z_text` 做 `L2-normalize`，把 latent 分布压塌到单位球面小区域。官方 MiniOneRec 直接喂**原始未归一化**文本 embedding。
-- **候选方案 A（推荐）**：text 模式保留原始 `z_text`（不 L2norm）；fixed/adaptive 的 text 侧同样保持原始尺度，仅对 `P(z_cf)` 侧与融合后做 L2norm（保留 alpha 语义）。三组仍需一致。需同步改 3 处：
-  1. `MiniOneRec/rq/trainer.py::_prepare_input`（text 分支不再 normalize）
-  2. `acsid/adaptive_fusion.py::FusionModule.forward`（text 侧去掉头一个 normalize）
-  3. `MiniOneRec/rq/generate_indices.py::build_fused_matrix`（text 分支一致）
-  并更新 `acsid/README.md` 注明"text 基线是否归一化"。
-- **候选方案 B**：text 完全走官方原始路径（连归一化都不加），归一化仅作为 adaptive 特有 —— 公平性变差。
-- **候选方案 C**：维持现状（归一化）——碰撞率 0.79 不可接受。
+### 碰撞率异常高 —— 已修复：融合范式重构为残差注入
+- **现象**：text 碰撞率 0.65 / fixed 0.85 / adaptive 0.85（upstream 0.004）；level-0 codebook 仅用 1-3/256 token；recon loss 0.0000。
+- **根因确认**：所有模式对 `z_text` 做 L2-normalize（`trainer._prepare_input`），压塌到单位球面 + Qwen embedding 各向异性 → codebook argmin 塌缩。且 fixed/adaptive 的 CF 信息实际被球面加权稀释，根本没有注入（这解释了为何比 text 更糟）。
+- **为什么没走原候选方案 A/B/C**：方案 A（text 侧不 normalize、其余保留）有内在矛盾——z_text 保持大尺度而 `Normalize(P(z_cf))` 在单位球面，α=0.3 时 CF 相对贡献仅约 2%，α 语义失效；且融合后再 Normalize 仍会塌回球面（≈当前已塌缩的 text 路径 + 噪声）。
+- **已实施（残差注入）**：`z_i = z_text + α_i·‖z_text‖·Normalize(P(z_cf))`；方向由 P 学习、幅度由 α 调度，z_text 永不归一化，text 基线逐字节等价 upstream。改动：
+  1. `acsid/adaptive_fusion.py::FusionModule.forward` — 残差式重写；删除死代码 `fuse_full`
+  2. `MiniOneRec/rq/trainer.py::_prepare_input` — text 分支返回原始 z_text
+  3. `MiniOneRec/rq/generate_indices.py::build_fused_matrix` — text 分支同步
+  4. `trainer.py` — 梯度裁剪纳入 fusion/P 参数（原 bug：只 clip RQ-VAE）
+  5. `acsid/generate_sid.py` — 训练前清理该 mode 旧 ckpt 目录（防 mtime 误选中止残留）；`--force_regen` 强制重生成 cf/alpha
+  6. 文档同步：PLAN_AMD / PROJECT_PLAN §2.3-2.4、§11.5、§12.5，acsid/README
+- **待办**：云端重跑三模式 RQ-VAE + analyze_collision 验证。验收：text ≤ 0.01（upstream 量级）；方向预期 adaptive ≤ fixed ≤ text；若 fixed/adaptive ≈ text 则为 P 未学到方向的安全失败，调 α_max 或上 P 两步预热，不推翻范式。
 
 ## 6. 云端上次运行状态
 
@@ -74,23 +75,27 @@ experiments/                # run_phase2_sid.sh + results/collision.json
 
 ## 7. 建议接手第一步
 
-1. `cd /mnt/workspace/ACSID && git pull origin acsid-amd`
-2. 读 `acsid_amd/PLAN_AMD.md` §12 与本文 §5，选定 text-normalize 处理方案
-3. 按方案改 §5 列出的 3 处文件（+ 文档）
-4. 重跑：
+1. `cd /mnt/workspace/ACSID && git pull origin acsid-amd`（残差注入改动已推送）
+2. 冒烟验证（text 模式，短 epochs，确认 level-0 distinct 恢复）：
    ```bash
    cd MiniOneRec/rq && source ../../.venv-amd/bin/activate
+   python ../../acsid/generate_sid.py --dataset Industrial_and_Scientific \
+     --epochs 200 --batch_size 2048 --eval_step 50 --device cuda:0 --modes text
+   ```
+   通过标准：level-0 distinct token 明显大于 3（塌缩时只有 3）。
+3. 全量三模式：
+   ```bash
    python ../../acsid/generate_sid.py --dataset Industrial_and_Scientific \
      --epochs 10000 --batch_size 20480 --eval_step 50 --device cuda:0 \
      --modes text fixed adaptive
    ```
-5. 碰撞对比：
+4. 碰撞对比：
    ```bash
    python ../../acsid/analyze_collision.py --base ../data/Amazon \
      --dataset Industrial_and_Scientific --include_upstream \
      --out_json ../../experiments/results/collision.json
    ```
-   核对 upstream vs text/fixed/adaptive（预期方向 adaptive ≤ fixed ≤ text）。
+   核对 upstream vs text/fixed/adaptive（验收见 §5 待办）。
 
 ## 8. 已修复 Bug 清单（供排查参考，勿重复定位）
 

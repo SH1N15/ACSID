@@ -42,33 +42,36 @@ Train interaction -> Item2Vec --------------+
                                             -> Full-param SFT -> GRPO -> Constrained Decoding
 ```
 
-### 2.3 核心创新：自适应协同权重
+### 2.3 核心创新：自适应协同残差注入
 
-用 item 在训练集中的交互次数驱动自适应权重：
+用 item 在训练集中的交互次数驱动自适应权重（v2，2026-08-20 由球面加权重构为残差注入）：
 
 ```
 alpha_i = alpha_max * min(1, log(1 + n_i) / log(1 + n_ref))
 
-z_hat_t = Normalize(z_text)
 z_hat_c = Normalize(P(z_cf))
 
-z_i = Normalize[(1 - alpha_i) * z_hat_t + alpha_i * z_hat_c]
+z_i = z_text + alpha_i * ||z_text|| * z_hat_c
 ```
 
 - n_i: item i 在 train 中的交互次数
 - n_ref: 参考频次（train item frequency 中位数）
 - alpha_max: 上限，默认 0.3; 严格满足 0 <= alpha_i <= alpha_max
-- z_text: Qwen3-Embedding-4B 的 2560d embedding (frozen, 离线生成)
+- z_text: Qwen3-Embedding-4B 的 2560d embedding (frozen, 离线生成，不归一化)
 - z_cf: Item2Vec 的 256d embedding (train-only)
-- P: Linear(256, 2560)，与 RQ-VAE 联合训练 (见 2.4)
-- Normalize: L2 normalize（对 z_text 和 P(z_cf) 分别归一化，使 alpha_i 的含义独立于两种 embedding 的尺度）
+- P: Linear(256, 2560)，与 RQ-VAE 联合训练 (见 2.4)；只学习方向，输出尺度被 Normalize 丢弃
+- ||z_text||: 逐 item 的 text embedding 范数，在 FusionModule.forward 内现算（训练/建索引自动一致）
 
-冷启动 item (n_i -> 0) -> alpha_i -> 0 -> z_i 退化为 z_hat_t (纯文本)
-热门 item (n_i >= n_ref) -> alpha_i = alpha_max -> 最多利用协同信息
+冷启动 item (n_i -> 0) -> alpha_i = 0 -> z_i 逐位等于 z_text (纯文本)
+热门 item (n_i >= n_ref) -> alpha_i = alpha_max -> 残差幅度达到自身范数的 30%
+
+alpha_i 的语义：协同残差的相对位移幅度（最多把 item 表示掰弯自身范数的 alpha_max 倍）。方向由 P 学习，幅度由 alpha_i 调度。
+
+**为什么是残差而不是球面加权**（v1 教训）：v1 公式 Normalize[(1-a)·Normalize(z_text)+a·Normalize(P(z_cf))] 为使 alpha 独立于两侧 embedding 尺度而对 z_text 做 L2 归一化，把全部 item 压到单位球面。Qwen embedding 本身各向异性，归一化后有效方差极小，RQ-VAE 第 0 层 codebook 的 argmin 分配塌缩到 1-3/256 个 token（实测 text 碰撞率 0.65，fixed/adaptive 0.85，upstream 0.004）。残差式让 z_text 的原始分布完全不被动，alpha 语义照样有保证（尺度被 Normalize+||z_text|| 调度锁死）——两难解除。text 基线因此逐字节等价于官方 upstream 路径（原始 embedding 直入 RQ-VAE）。
 
 ### 2.4 P 的训练方式
 
-P 是 Linear(256, 2560)，约 65.5 万参数，与 RQ-VAE 联合训练。P 的输出在融合前进行 L2 normalization，使 alpha_i 的含义独立于两种 embedding 的尺度。RQ reconstruction/quantization loss 同时更新 P 和 RQ-VAE。
+P 是 Linear(256, 2560)，约 65.5 万参数，与 RQ-VAE 联合训练。P 的输出只取方向（L2 normalize 后），尺度被丢弃；残差幅度完全由 alpha_i * ||z_text|| 调度，因此 P 的输出尺度无法泄入 alpha 语义。RQ reconstruction/quantization loss 同时更新 P 和 RQ-VAE，梯度裁剪同时覆盖两者。
 
 ```text
 Item2Vec 256d
@@ -77,23 +80,20 @@ Item2Vec 256d
 Linear P (256 -> 2560)        <-- 可训练，与 RQ-VAE 同时优化
       |
       v
-L2 Normalize(P(z_cf))
+L2 Normalize(P(z_cf))          <-- 只取方向
       |
       v
-Adaptive fusion (Normalize(z_text), Normalize(P(z_cf)), alpha_i)
-      |
-      v
-L2 Normalize(fused)
-      |
+z_i = z_text + alpha_i * ||z_text|| * Normalize(P(z_cf))
+      |                            <-- z_text 原样保留，残差有界
       v
 RQ-VAE (codebook 优化 + P 优化 联合训练)
 ```
 
-RQ-VAE 结构不变，仅在其输入侧增加一个 256->2560 的可训练 projection。融合前对 P(z_cf) 和 frozen text embedding 分别 L2 normalize。Baseline、Fixed-CF、ACSID 三组的 RQ-VAE 训练协议保持一致（相同 codebook size、level 数、optimizer、epochs、seed），仅输入表示不同。
+RQ-VAE 结构不变，仅在其输入侧叠加一个有界的协同残差。Baseline、Fixed-CF、ACSID 三组的 RQ-VAE 训练协议保持一致（相同 codebook size、level 数、optimizer、epochs、seed），仅输入表示不同。
 
 三套 RQ-VAE checkpoint 分别训练（RQ_text / RQ_fixed / RQ_adaptive），因为三个 embedding 空间不同，不能共享同一个 RQ-VAE。
 
-注意：P 使得经验信号可被 RQ-VAE 重构，但不保证 P(z_cf) 严格落在 text embedding 的语义空间内。如需严格对齐，需要增加显式 alignment loss（如 MSE 对齐到 text embedding），但那会引入额外训练目标和超参。本项目不做显式对齐，alpha 的可解释性通过 L2 normalization 保证，而非通过空间对齐。
+注意：P 使得经验信号可被 RQ-VAE 重构，但不保证 P(z_cf) 严格落在 text embedding 的语义空间内。如需严格对齐，需要增加显式 alignment loss（如 MSE 对齐到 text embedding），但那会引入额外训练目标和超参。本项目不做显式对齐；alpha 的可解释性由"方向学习 + 幅度调度"的分工保证，而非通过空间对齐。
 
 ### 2.5 为什么不改下游
 
@@ -488,10 +488,10 @@ experiments/                   # 【新增】实验管理
 
 | 参数 | 值 | 说明 |
 |------|-----|------|
-| alpha_max | 0.3 | CF 权重上限 |
+| alpha_max | 0.3 | 协同残差相对位移上限（自身范数的 30%） |
 | n_ref | 训练集中位数 | 参考频次 |
-| P | Linear(256, 2560) | 与 RQ-VAE 联合训练 |
-| 未覆盖 item | alpha_i=0 | text-only fallback |
+| P | Linear(256, 2560) | 与 RQ-VAE 联合训练，只学方向 |
+| 未覆盖 item | alpha_i=0 | 逐位等于 z_text |
 
 ---
 
@@ -524,7 +524,7 @@ MI300X 192GB 跑 GRPO group_size=16 的显存预算：
 
 ### 12.5 P 的训练稳定性
 
-P 与 RQ-VAE 联合训练，P 的参数量小（65.5 万），RQ-VAE 的 reconstruction loss 驱动 P 优化。融合前对 P(z_cf) 和 z_text 分别 L2 normalize，使 P 的输出尺度不影响 alpha 的语义。P 只需要学习将 CF embedding 投影到对 RQ-VAE 重构有用的方向，不需要严格对齐到 text embedding 空间。如训练不稳定，考虑分两步：先冻结 RQ-VAE 预训练 P（用 text embedding 做 reconstruction 监督），再联合微调。
+P 与 RQ-VAE 联合训练，P 的参数量小（65.5 万），RQ-VAE 的 reconstruction loss 驱动 P 优化。P 的输出经 L2 normalize 只保留方向，尺度无法泄入 alpha；残差幅度由 alpha_i·||z_text|| 有界调度，梯度裁剪同时覆盖 RQ-VAE 与 P 的参数。P 只需要学习将 CF embedding 投影到对 RQ-VAE 重构有用的方向，不需要严格对齐到 text embedding 空间。可能的失败模式是 P 学不到有用方向（adaptive 退化为 text——安全失败，不劣于基线）；如出现，考虑分两步：先冻结 RQ-VAE 预训练 P（用 text embedding 做 reconstruction 监督），再联合微调。
 
 ---
 
