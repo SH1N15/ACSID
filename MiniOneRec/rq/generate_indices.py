@@ -1,7 +1,7 @@
 """Generate index.json (item -> SID tokens) from a trained RQ-VAE checkpoint.
 
 ACSID extension: when the checkpoint was trained with mode != text, the
-FusionModule (P + L2-normalized adaptive sum) is rebuilt from the
+FusionModule (P + residual injection) is rebuilt from the
 checkpoint's args/state and applied to reconstruct the SAME fused embeddings
 used during training, so the generated SIDs reflect the collaborative-text
 representation rather than raw text. The sinkhorn collision-breaking loop
@@ -66,7 +66,7 @@ def build_fused_matrix(dataset, fusion, mode, alpha_max, device, batch=4096):
     """Materialize the [N, D_text] fused embedding matrix used for indexing.
 
     Replicates the trainer's _prepare_input exactly:
-      text     -> L2norm(z_text)
+      text     -> raw z_text (upstream path, no normalization)
       fixed    -> fusion(z_text, z_cf, alpha=alpha_max constant)
       adaptive -> fusion(z_text, z_cf, alpha=alpha.npy per item)
     """
@@ -89,7 +89,7 @@ def build_fused_matrix(dataset, fusion, mode, alpha_max, device, batch=4096):
                     alpha = torch.from_numpy(dataset.alpha[s:e]).to(device).view(-1)
                 z_i = fusion_dev(z_text, z_cf, alpha)
             else:
-                z_i = torch.nn.functional.normalize(z_text, p=2, dim=-1)
+                z_i = z_text
             out[s:e] = z_i.cpu()
     return out
 

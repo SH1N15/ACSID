@@ -1,14 +1,25 @@
 """Adaptive collaborative-text fusion for ACSID.
 
-Implements the per-item adaptive weight from PROJECT_PLAN.md §2.3:
+Implements the per-item adaptive weight and the residual-injection fusion
+(PROJECT_PLAN.md §2.3, v2 2026-08-20):
 
     alpha_i = alpha_max * min(1, log(1 + n_i) / log(1 + n_ref))
-    z_hat_t = Normalize(z_text)
     z_hat_c = Normalize(P(z_cf))
-    z_i     = Normalize[(1 - alpha_i) * z_hat_t + alpha_i * z_hat_c]
+    z_i     = z_text + alpha_i * ||z_text|| * z_hat_c
 
-P is Linear(cf_dim, text_dim) trained jointly with RQ-VAE; its output is
-L2-normalized so the scale of the CF embedding does not leak into alpha.
+P is Linear(cf_dim, text_dim) trained jointly with RQ-VAE. Only the
+DIRECTION of P(z_cf) is learned; the residual magnitude is scheduled by
+alpha_i as a per-item relative displacement (at most alpha_max * ||z_text||),
+so the scale of the CF embedding cannot leak into alpha. z_text itself is
+never normalized: alpha = 0 reproduces the pure-text input exactly, and the
+text-mode baseline stays byte-identical to upstream MiniOneRec (raw
+embeddings straight into the RQ-VAE).
+
+This replaces the earlier spherical convex-combination fusion
+Normalize[(1-a)*Normalize(z_text)+a*Normalize(P(z_cf))], which collapsed the
+RQ-VAE codebook distribution (collision 0.65-0.85 vs upstream 0.004);
+see HANDOFF.md §5 for the decision record.
+
 Item-id == row index (see PROJECT_PLAN.md §12.2), so alpha/cf arrays are
 indexed by the same row used for the text .npy.
 """
@@ -116,26 +127,32 @@ def compute_alpha(
 
 
 # ---------------------------------------------------------------------------
-# Fusion module: learnable projection P + L2-normalized weighted sum
+# Fusion module: learnable projection P + residual injection
 # ---------------------------------------------------------------------------
 
 class FusionModule(nn.Module):
-    """Holds P and the adaptive-fusion arithmetic.
+    """Holds P and the residual-injection arithmetic:
+
+        z_i = z_text + alpha * ||z_text|| * Normalize(P(z_cf))
+
+    P learns only a direction in text space; the residual magnitude is
+    alpha * ||z_text|| (per-item relative displacement, bounded by
+    alpha_max * ||z_text||). z_text passes through untouched, so alpha = 0
+    is byte-identical to the pure-text baseline.
 
     Parameters:
         cf_dim   : input dim of the collaborative embedding (Item2Vec), e.g. 256
         text_dim : input dim of the text embedding (RQ-VAE in_dim), read
                    from the .npy at runtime; never hard-coded.
-        bias     : whether P has a bias term. Plan says "Linear(256->2560)";
-                   we keep bias=False by default since the L2-normalize after
-                   P makes a bias term largely redundant and the original
-                   spec omits it.
+        bias     : whether P has a bias term. The normalize after P discards
+                   the output scale, so bias=False by default (matches the
+                   "Linear(256->2560)" spec).
 
     forward(z_text, z_cf, alpha):
-        z_text : [B, text_dim]  (raw, will be L2-normalized here)
+        z_text : [B, text_dim]  (raw, passed through unnormalized)
         z_cf   : [B, cf_dim]
-        alpha  : [B] or [B, 1]  (per-item weight in [0, alpha_max])
-        returns z_i : [B, text_dim]  (L2-normalized fused vector)
+        alpha  : [B] or [B, 1]  (per-item residual strength in [0, alpha_max])
+        returns z_i : [B, text_dim]  (z_text + bounded CF residual)
     """
 
     def __init__(self, cf_dim: int, text_dim: int, bias: bool = False):
@@ -152,34 +169,11 @@ class FusionModule(nn.Module):
         if z_cf.size(1) != self.cf_dim:
             raise ValueError(f"z_cf has dim {z_cf.size(1)} but P expects {self.cf_dim}")
 
-        z_hat_t = F.normalize(z_text, p=2, dim=-1)
+        # direction-only CF signal: P's output scale cannot leak into alpha
         z_hat_c = F.normalize(self.P(z_cf), p=2, dim=-1)
 
+        # per-item relative displacement: alpha scales the residual by the
+        # item's own text norm; alpha = 0 keeps z_text exactly as-is
         a = alpha.view(-1, 1)
-        fused = (1.0 - a) * z_hat_t + a * z_hat_c
-        return F.normalize(fused, p=2, dim=-1)
-
-
-def fuse_full(
-    fusion: FusionModule,
-    z_text: torch.Tensor,
-    z_cf: torch.Tensor,
-    alpha: torch.Tensor,
-    batch_size: int = 4096,
-    device: Optional[torch.device] = None,
-) -> torch.Tensor:
-    """Fuse all items at once on GPU in chunks; returns [N, text_dim] on CPU.
-
-    Used by generate_indices.py to reconstruct the full fused embedding
-    matrix before the RQ-VAE get_indices pass. No gradients.
-    """
-    fusion.eval()
-    out = torch.empty((z_text.size(0), fusion.text_dim), dtype=z_text.dtype)
-    with torch.no_grad():
-        for s in range(0, z_text.size(0), batch_size):
-            e = min(s + batch_size, z_text.size(0))
-            t = z_text[s:e].to(device)
-            c = z_cf[s:e].to(device)
-            al = alpha[s:e].to(device)
-            out[s:e] = fusion(t, c, al).cpu()
-    return out
+        scale = z_text.norm(p=2, dim=-1, keepdim=True)
+        return z_text + a * scale * z_hat_c
