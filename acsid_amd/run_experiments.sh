@@ -51,7 +51,14 @@ declare -A DATA_DIR=(
 # -------------------------------------------------------
 if [[ "${PHASES}" == *"sft"* ]]; then
 echo "===== SFT PHASE ====="
+# SKIP_MODES: space-separated modes to skip (e.g. "text" when already done).
+# Example: SKIP_MODES="text" PHASES="sft" SEEDS_STR="42" bash acsid_amd/run_experiments.sh
+SKIP_MODES="${SKIP_MODES:-}"
 for mode in text fixed adaptive; do
+    if [[ " ${SKIP_MODES} " == *" ${mode} "* ]]; then
+        echo "--- SFT: skipping mode=${mode} (in SKIP_MODES) ---"
+        continue
+    fi
     for seed in "${SEEDS[@]}"; do
         echo "--- SFT: mode=${mode} seed=${seed} ---"
         train_file=$(ls -f ${DATA_DIR[$mode]}/train/${DATASET}*11.csv)
@@ -85,10 +92,17 @@ fi
 if [[ "${PHASES}" == *"eval"* ]]; then
 echo "===== EVAL PHASE ====="
 mkdir -p results
+SKIP_MODES="${SKIP_MODES:-}"
 for mode in text fixed adaptive; do
+    if [[ " ${SKIP_MODES} " == *" ${mode} "* ]]; then
+        echo "--- EVAL: skipping mode=${mode} (in SKIP_MODES) ---"
+        continue
+    fi
     for seed in "${SEEDS[@]}"; do
         echo "--- EVAL SFT: mode=${mode} seed=${seed} ---"
-        ckpt="output_dir/sft_${mode}_seed${seed}"
+        # final_checkpoint holds model + tokenizer; top-level safetensors may
+        # have been cleaned up to save disk
+        ckpt="output_dir/sft_${mode}_seed${seed}/final_checkpoint"
         test_file=$(ls -f ${DATA_DIR[$mode]}/test/${DATASET}*11.csv)
         info_file=$(ls -f ${DATA_DIR[$mode]}/info/${DATASET}*.txt)
         result_json="results/eval_sft_${mode}_seed${seed}.json"
@@ -121,7 +135,7 @@ echo "===== GRPO PHASE ====="
 for mode in text adaptive; do
     for seed in "${SEEDS[@]}"; do
         echo "--- GRPO: mode=${mode} seed=${seed} ---"
-        sft_ckpt="output_dir/sft_${mode}_seed${seed}"
+        sft_ckpt="output_dir/sft_${mode}_seed${seed}/final_checkpoint"
         train_file=$(ls -f ${DATA_DIR[$mode]}/train/${DATASET}*.csv)
         eval_file=$(ls -f ${DATA_DIR[$mode]}/valid/${DATASET}*11.csv)
         info_file=$(ls -f ${DATA_DIR[$mode]}/info/${DATASET}*.txt)
