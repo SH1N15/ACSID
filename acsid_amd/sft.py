@@ -145,6 +145,7 @@ def train(
         model = AutoModelForCausalLM.from_pretrained(
             base_model,
             torch_dtype=torch.bfloat16,
+            attn_implementation="sdpa",  # fused attention kernel, faster than eager on ROCm
         )
     else:
         config = AutoConfig.from_pretrained(base_model)
