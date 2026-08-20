@@ -10,9 +10,6 @@ for _p in (os.path.join(_PROJECT_ROOT, "MiniOneRec"), _PROJECT_ROOT):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-# --- ROCm / MI300X environment tuning (must be set before torch import) ---
-os.environ.setdefault("PYTORCH_HIP_ALLOC_CONF", "max_split_size_mb:512")
-# Reduce memory fragmentation for large-batch training on 192GB HBM3.
 os.environ.setdefault("WANDB_MODE", "disabled")
 # wandb prompts for an API key in non-interactive runs and blocks training.
 
@@ -281,10 +278,6 @@ def train(
             ddp_find_unused_parameters=False if ddp else None,
             group_by_length=group_by_length,
             report_to=None,
-            # --- MI300X acceleration ---
-            dataloader_num_workers=4,        # parallel data loading
-            dataloader_pin_memory=True,      # pinned H2D transfers
-            dataloader_persistent_workers=True,  # avoid worker respawn across epochs
             gradient_checkpointing=False,    # 192GB VRAM ample, no need to trade compute for memory
             torch_compile=False,             # ROCm torch.compile is unstable, leave off
         ),
