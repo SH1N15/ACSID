@@ -61,7 +61,7 @@ for mode in text fixed adaptive; do
         python ../acsid_amd/sft.py \
             --base_model "${BASE_MODEL}" \
             --batch_size 1024 \
-            --micro_batch_size 128 \
+            --micro_batch_size 64 \
             --train_file "${train_file}" \
             --eval_file "${eval_file}" \
             --output_dir output_dir/sft_${mode}_seed${seed} \
