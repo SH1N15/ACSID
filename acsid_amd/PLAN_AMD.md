@@ -116,24 +116,26 @@ RQ-VAE 结构不变，仅在其输入侧叠加一个有界的协同残差。Base
 
 ### 3.1 主实验
 
-**SFT 阶段**（3 组 x 2 seed = 6 次训练）：
+**SFT 阶段**（3 组 x 1 seed = 3 次训练）：
 
 | 方法 | SID 构造 | Seeds |
 |------|---------|-------|
-| MiniOneRec (Baseline) | 纯 Text | 42, 123 |
-| Fixed-CF | Text + CF, alpha=0.3 固定 | 42, 123 |
-| **ACSID** | **Text + CF, alpha_i 自适应** | **42, 123** |
+| MiniOneRec (Baseline) | 纯 Text | 42 |
+| Fixed-CF | Text + CF, alpha=0.3 固定 | 42 |
+| **ACSID** | **Text + CF, alpha_i 自适应** | **42** |
 
-**GRPO 阶段**（2 组 x 2 seed = 4 次训练）：
+> 原计划为 3 组 x 2 seed = 6 次，因云端持久化存储 100GB 限制（单个 SFT checkpoint 含 optimizer states ~18GB，6 个 = 108GB 超限）缩减为单 seed。如需多 seed，需跑完一组评测后删除 checkpoint 再跑下一组。
+
+**GRPO 阶段**（2 组 x 1 seed = 2 次训练）：
 
 | 方法 | SID 构造 | Seeds |
 |------|---------|-------|
-| MiniOneRec (Baseline) | 纯 Text | 42, 123 |
-| **ACSID** | **Text + CF, alpha_i 自适应** | **42, 123** |
+| MiniOneRec (Baseline) | 纯 Text | 42 |
+| **ACSID** | **Text + CF, alpha_i 自适应** | **42** |
 
 Fixed-CF 只在 SFT 阶段出现，用于验证"固定权重 vs adaptive"。不烧额外 RL。
 
-**总计 10 次训练**，符合 MI300X 192GB 单卡的算力条件。
+**总计 5 次训练**，符合 MI300X 192GB 单卡 + 100GB 持久化存储的约束。
 
 ### 3.2 消融实验
 
@@ -167,7 +169,7 @@ alpha 消融（在 SFT 阶段，seed=42）：
 
 **RL 稳定性**：Invalid SID Rate
 
-多 seed 平均值报告，不加 bootstrap CI。
+单 seed (42) 报告，不加 bootstrap CI。
 
 ### 3.5 最终需要证明的三件事
 
@@ -330,16 +332,16 @@ GRPO group size=16               # 不减配！论文原配置
 
 ### Phase 3：SFT 对比实验（2-3 天）
 
-- [ ] Baseline (Text SID) SFT：2 个种子（42, 123）
-- [ ] Fixed-CF SFT：2 个种子
-- [ ] ACSID SFT：2 个种子
+- [ ] Baseline (Text SID) SFT：seed=42
+- [ ] Fixed-CF SFT：seed=42
+- [ ] ACSID SFT：seed=42
 - [ ] 每组评测 HR@5/10、NDCG@5/10
 - [ ] 报告非法 SID 生成率
 
 ### Phase 4：GRPO 对比实验（2-3 天）
 
-- [ ] Baseline GRPO：2 个种子（42, 123）
-- [ ] ACSID GRPO：2 个种子
+- [ ] Baseline GRPO：seed=42
+- [ ] ACSID GRPO：seed=42
 - [ ] 评测对比 SFT-only vs SFT+GRPO
 
 ### Phase 5：消融与最终分析（1-2 天）
@@ -394,7 +396,7 @@ GRPO group size=16               # 不减配！论文原配置
 - 跨硬件适配：AMD ROCm 环境适配（替换 bitsandbytes，保留 DeepSpeed 作备用）
 - 全参数微调 + GRPO：MI300X 192GB 全配置训练
 - 分阶段 GPU 调度：embedding 离线生成 -> RQ-VAE -> SFT -> GRPO (单卡分时复用)
-- 实验设计：多 seed + 消融实验 + collision 分析
+- 实验设计：消融实验 + collision 分析
 
 ---
 

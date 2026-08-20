@@ -29,8 +29,9 @@ ITEM_META="./data/Amazon/index/${DATASET}.item.json"
 
 # Seeds and phases are env-overridable so you can run a subset, e.g.:
 #   PHASES="sft eval" SEEDS_STR="42" bash acsid_amd/run_experiments.sh
-# Default reproduces the full 6-SFT + 4-GRPO matrix.
-read -ra SEEDS <<< "${SEEDS_STR:-42 123}"
+# Default: 3 SFT + 3 eval + 2 GRPO (seed=42 only; 100GB storage can't
+# hold 6 SFT checkpoints at ~18GB each).
+read -ra SEEDS <<< "${SEEDS_STR:-42}"
 PHASES="${PHASES:-sft grpo}"
 
 declare -A SID_INDEX=(
