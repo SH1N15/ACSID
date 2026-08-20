@@ -46,10 +46,13 @@ declare -A DATA_DIR=(
 )
 
 # -------------------------------------------------------
-# SFT: 3 methods x N seeds
+# SFT + EVAL (interleaved): train one mode, evaluate it, free the
+# checkpoint before the next. 100GB persistent storage can't hold 6
+# SFT checkpoints at once (~12GB each), so we eval-and-delete inline.
 # -------------------------------------------------------
-if [[ "${PHASES}" == *"sft"* ]]; then
-echo "===== SFT PHASE ====="
+if [[ "${PHASES}" == *"sft"* ]] || [[ "${PHASES}" == *"eval"* ]]; then
+echo "===== SFT + EVAL PHASE (interleaved) ====="
+mkdir -p results
 for mode in text fixed adaptive; do
     for seed in "${SEEDS[@]}"; do
         echo "--- SFT: mode=${mode} seed=${seed} ---"
@@ -74,41 +77,33 @@ for mode in text fixed adaptive; do
             --item_meta_path ${ITEM_META} \
             --freeze_LLM False \
             --group_by_length True
-    done
-done
-fi
 
-# -------------------------------------------------------
-# EVAL: evaluate.py (constrained beam search) + calc.py (HR/NDCG)
-# Runs after SFT so each checkpoint is scored immediately.
-# -------------------------------------------------------
-if [[ "${PHASES}" == *"eval"* ]]; then
-echo "===== EVAL PHASE ====="
-mkdir -p results
-for mode in text fixed adaptive; do
-    for seed in "${SEEDS[@]}"; do
-        echo "--- EVAL SFT: mode=${mode} seed=${seed} ---"
-        ckpt="output_dir/sft_${mode}_seed${seed}"
-        test_file=$(ls -f ${DATA_DIR[$mode]}/test/${DATASET}*11.csv)
-        info_file=$(ls -f ${DATA_DIR[$mode]}/info/${DATASET}*.txt)
-        result_json="results/eval_sft_${mode}_seed${seed}.json"
+        if [[ "${PHASES}" == *"eval"* ]]; then
+            echo "--- EVAL SFT: mode=${mode} seed=${seed} ---"
+            ckpt="output_dir/sft_${mode}_seed${seed}"
+            result_json="results/eval_sft_${mode}_seed${seed}.json"
 
-        python evaluate.py \
-            --base_model "${ckpt}" \
-            --info_file "${info_file}" \
-            --category ${DATASET} \
-            --test_data_path "${test_file}" \
-            --result_json_data "${result_json}" \
-            --num_beams 50 \
-            --max_new_tokens 256 \
-            --length_penalty 0.0 \
-            --batch_size 8 \
-            --seed ${seed}
+            python evaluate.py \
+                --base_model "${ckpt}" \
+                --info_file "${info_file}" \
+                --category ${DATASET} \
+                --test_data_path "${test_file}" \
+                --result_json_data "${result_json}" \
+                --num_beams 50 \
+                --max_new_tokens 256 \
+                --length_penalty 0.0 \
+                --batch_size 8 \
+                --seed ${seed}
 
-        echo "--- CALC: mode=${mode} seed=${seed} ---"
-        python calc.py \
-            --path "${result_json}" \
-            --item_path "${info_file}"
+            echo "--- CALC: mode=${mode} seed=${seed} ---"
+            python calc.py \
+                --path "${result_json}" \
+                --item_path "${info_file}"
+
+            # Free the checkpoint — results JSON is all we need downstream.
+            echo "--- CLEANUP: removing ${ckpt} to save disk ---"
+            rm -rf "${ckpt}"
+        fi
     done
 done
 fi
