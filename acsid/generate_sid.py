@@ -192,12 +192,14 @@ def main():
         _run(gen_cmd)
 
         # 4) regenerate CSVs + info using the NEW index.json (src = upstream dir)
+        item_json_path = os.path.join(index_dir, f"{args.dataset}.item.json")
         regen_cmd = [
             sys.executable, regen_py,
             "--src_dir", out_root,
             "--new_index", index_out,
             "--out_dir", os.path.join(out_root, mode),
             "--dataset", args.dataset,
+            "--item_json", item_json_path,
         ]
         _run(regen_cmd)
 
