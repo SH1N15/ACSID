@@ -265,7 +265,7 @@ def train(
             logging_steps=1,
             optim="adamw_torch",
             eval_strategy="steps",
-            eval_steps=eval_step, 
+            eval_steps=eval_step,
             save_strategy="steps",
             save_steps=eval_step,
             output_dir=output_dir,
@@ -274,6 +274,11 @@ def train(
             ddp_find_unused_parameters=False if ddp else None,
             group_by_length=group_by_length,
             report_to=None,
+            # --- MI300X acceleration ---
+            dataloader_num_workers=4,        # parallel data loading
+            dataloader_pin_memory=True,      # pinned H2D transfers
+            gradient_checkpointing=False,    # 192GB VRAM ample, no need to trade compute for memory
+            torch_compile=False,             # ROCm torch.compile is unstable, leave off
         ),
         data_collator=transformers.DataCollatorForSeq2Seq(
             tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
