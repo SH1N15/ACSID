@@ -15,6 +15,9 @@
 set -euo pipefail
 export NCCL_IB_DISABLE=1
 export HIP_VISIBLE_DEVICES=0
+# wandb prompts for an API key in non-interactive (nohup) runs and crashes.
+# Disable it; set WANDB_MODE=online and provide an API key if you want logging.
+export WANDB_MODE="${WANDB_MODE:-disabled}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
