@@ -18,12 +18,19 @@ class Trainer(object):
         self.model = model
         self.logger = logging.getLogger()
 
-        # ACSID: optional fusion module (P + L2-normalized adaptive sum).
-        # None => text mode, input = L2norm(text); otherwise trained jointly
-        # with RQ-VAE by sharing this trainer's optimizer.
+        # ACSID: optional fusion module (P + residual injection).
+        # None => text mode, input = raw text embedding (upstream path);
+        # otherwise trained jointly with RQ-VAE by sharing this trainer's
+        # optimizer.
         self.fusion = fusion
         self.mode = getattr(args, "mode", "text")
         self.alpha_max = getattr(args, "alpha_max", 0.3)
+        # gradient clipping must cover RQ-VAE AND fusion (P) parameters alike
+        self._clip_params = (
+            list(self.model.parameters()) + list(self.fusion.parameters())
+            if self.fusion is not None
+            else list(self.model.parameters())
+        )
 
         self.lr = args.lr
         self.learner = args.learner
@@ -113,7 +120,7 @@ class Trainer(object):
         A raw tensor (legacy EmbDataset) is also accepted and treated as
         a text-only batch.
 
-        - text mode (self.fusion is None):   z_i = L2norm(z_text)
+        - text mode (self.fusion is None):   z_i = z_text (raw, matches upstream)
         - fixed mode:  alpha := alpha_max (constant) for every item in the batch
         - adaptive:    alpha taken from alpha.npy (per-item, loaded by the dataset)
         """
@@ -131,7 +138,7 @@ class Trainer(object):
                 alpha = torch.full((z_text.size(0),), float(self.alpha_max),
                                    device=self.device, dtype=z_text.dtype)
             return self.fusion(z_text, z_cf, alpha)
-        return torch.nn.functional.normalize(z_text, p=2, dim=-1)
+        return z_text
 
     def _train_epoch(self, train_data, epoch_idx):
 
@@ -155,7 +162,7 @@ class Trainer(object):
             loss, loss_recon = self.model.compute_loss(out, rq_loss, xs=z_i)
             self._check_nan(loss)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_(self._clip_params, 1.0)
             self.optimizer.step()
             self.scheduler.step()
             # print(self.scheduler.get_last_lr())
