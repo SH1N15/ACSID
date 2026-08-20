@@ -1,6 +1,6 @@
 {
   "upstream": {
-    "path": "./data/Amazon/index/Industrial_and_Scientific.index.json",
+    "path": "../data/Amazon/index/Industrial_and_Scientific.index.json",
     "n_items": 3686,
     "unique_sids": 3670,
     "collision_rate": 0.004340748779164406,
@@ -30,92 +30,92 @@
     ]
   },
   "text": {
-    "path": "./data/Amazon/index/Industrial_and_Scientific.index.text.json",
+    "path": "../data/Amazon/index/Industrial_and_Scientific.index.text.json",
     "n_items": 3686,
-    "unique_sids": 1293,
-    "collision_rate": 0.6492132392837765,
-    "unique_ratio": 0.35078676071622356,
+    "unique_sids": 3675,
+    "collision_rate": 0.002984264785675529,
+    "unique_ratio": 0.9970157352143245,
     "per_level": [
       {
         "level": 0,
         "prefix": "a",
-        "distinct_tokens": 3,
+        "distinct_tokens": 86,
         "codebook_size": null,
-        "max_collisions_at_level": 3162
+        "max_collisions_at_level": 137
       },
       {
         "level": 1,
         "prefix": "b",
-        "distinct_tokens": 11,
+        "distinct_tokens": 256,
         "codebook_size": null,
-        "max_collisions_at_level": 1087
+        "max_collisions_at_level": 45
       },
       {
         "level": 2,
         "prefix": "c",
-        "distinct_tokens": 249,
+        "distinct_tokens": 256,
         "codebook_size": null,
-        "max_collisions_at_level": 144
+        "max_collisions_at_level": 75
       }
     ]
   },
   "fixed": {
-    "path": "./data/Amazon/index/Industrial_and_Scientific.index.fixed.json",
+    "path": "../data/Amazon/index/Industrial_and_Scientific.index.fixed.json",
     "n_items": 3686,
-    "unique_sids": 556,
-    "collision_rate": 0.8491589799240369,
-    "unique_ratio": 0.15084102007596312,
+    "unique_sids": 3686,
+    "collision_rate": 0.0,
+    "unique_ratio": 1.0,
     "per_level": [
       {
         "level": 0,
         "prefix": "a",
-        "distinct_tokens": 1,
+        "distinct_tokens": 79,
         "codebook_size": null,
-        "max_collisions_at_level": 3686
+        "max_collisions_at_level": 235
       },
       {
         "level": 1,
         "prefix": "b",
-        "distinct_tokens": 6,
+        "distinct_tokens": 256,
         "codebook_size": null,
-        "max_collisions_at_level": 2026
+        "max_collisions_at_level": 53
       },
       {
         "level": 2,
         "prefix": "c",
-        "distinct_tokens": 246,
+        "distinct_tokens": 256,
         "codebook_size": null,
-        "max_collisions_at_level": 108
+        "max_collisions_at_level": 78
       }
     ]
   },
   "adaptive": {
-    "path": "./data/Amazon/index/Industrial_and_Scientific.index.adaptive.json",
+    "path": "../data/Amazon/index/Industrial_and_Scientific.index.adaptive.json",
     "n_items": 3686,
-    "unique_sids": 569,
-    "collision_rate": 0.8456321215409658,
-    "unique_ratio": 0.15436787845903419,
+    "unique_sids": 3682,
+    "collision_rate": 0.0010851871947911015,
+    "unique_ratio": 0.9989148128052089,
     "per_level": [
       {
         "level": 0,
         "prefix": "a",
-        "distinct_tokens": 1,
+        "distinct_tokens": 56,
         "codebook_size": null,
-        "max_collisions_at_level": 3686
+        "max_collisions_at_level": 157
       },
       {
         "level": 1,
         "prefix": "b",
-        "distinct_tokens": 6,
+        "distinct_tokens": 256,
         "codebook_size": null,
-        "max_collisions_at_level": 1846
+        "max_collisions_at_level": 31
       },
       {
         "level": 2,
         "prefix": "c",
-        "distinct_tokens": 246,
+        "distinct_tokens": 256,
         "codebook_size": null,
-        "max_collisions_at_level": 141
+        "max_collisions_at_level": 79
       }
     ]
   }
