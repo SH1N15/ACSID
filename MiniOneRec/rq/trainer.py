@@ -288,7 +288,7 @@ class Trainer(object):
                             delete_file(bad_save[1])
 
                     if old_save not in self.best_save_heap:
-                        delete_file(old_save)
+                        delete_file(old_save[1])
 
 
 

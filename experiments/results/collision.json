@@ -1,0 +1,122 @@
+{
+  "upstream": {
+    "path": "./data/Amazon/index/Industrial_and_Scientific.index.json",
+    "n_items": 3686,
+    "unique_sids": 3670,
+    "collision_rate": 0.004340748779164406,
+    "unique_ratio": 0.9956592512208355,
+    "per_level": [
+      {
+        "level": 0,
+        "prefix": "a",
+        "distinct_tokens": 48,
+        "codebook_size": null,
+        "max_collisions_at_level": 247
+      },
+      {
+        "level": 1,
+        "prefix": "b",
+        "distinct_tokens": 256,
+        "codebook_size": null,
+        "max_collisions_at_level": 77
+      },
+      {
+        "level": 2,
+        "prefix": "c",
+        "distinct_tokens": 256,
+        "codebook_size": null,
+        "max_collisions_at_level": 110
+      }
+    ]
+  },
+  "text": {
+    "path": "./data/Amazon/index/Industrial_and_Scientific.index.text.json",
+    "n_items": 3686,
+    "unique_sids": 1293,
+    "collision_rate": 0.6492132392837765,
+    "unique_ratio": 0.35078676071622356,
+    "per_level": [
+      {
+        "level": 0,
+        "prefix": "a",
+        "distinct_tokens": 3,
+        "codebook_size": null,
+        "max_collisions_at_level": 3162
+      },
+      {
+        "level": 1,
+        "prefix": "b",
+        "distinct_tokens": 11,
+        "codebook_size": null,
+        "max_collisions_at_level": 1087
+      },
+      {
+        "level": 2,
+        "prefix": "c",
+        "distinct_tokens": 249,
+        "codebook_size": null,
+        "max_collisions_at_level": 144
+      }
+    ]
+  },
+  "fixed": {
+    "path": "./data/Amazon/index/Industrial_and_Scientific.index.fixed.json",
+    "n_items": 3686,
+    "unique_sids": 556,
+    "collision_rate": 0.8491589799240369,
+    "unique_ratio": 0.15084102007596312,
+    "per_level": [
+      {
+        "level": 0,
+        "prefix": "a",
+        "distinct_tokens": 1,
+        "codebook_size": null,
+        "max_collisions_at_level": 3686
+      },
+      {
+        "level": 1,
+        "prefix": "b",
+        "distinct_tokens": 6,
+        "codebook_size": null,
+        "max_collisions_at_level": 2026
+      },
+      {
+        "level": 2,
+        "prefix": "c",
+        "distinct_tokens": 246,
+        "codebook_size": null,
+        "max_collisions_at_level": 108
+      }
+    ]
+  },
+  "adaptive": {
+    "path": "./data/Amazon/index/Industrial_and_Scientific.index.adaptive.json",
+    "n_items": 3686,
+    "unique_sids": 569,
+    "collision_rate": 0.8456321215409658,
+    "unique_ratio": 0.15436787845903419,
+    "per_level": [
+      {
+        "level": 0,
+        "prefix": "a",
+        "distinct_tokens": 1,
+        "codebook_size": null,
+        "max_collisions_at_level": 3686
+      },
+      {
+        "level": 1,
+        "prefix": "b",
+        "distinct_tokens": 6,
+        "codebook_size": null,
+        "max_collisions_at_level": 1846
+      },
+      {
+        "level": 2,
+        "prefix": "c",
+        "distinct_tokens": 246,
+        "codebook_size": null,
+        "max_collisions_at_level": 141
+      }
+    ]
+  }
+}
