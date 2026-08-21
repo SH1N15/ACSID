@@ -11,7 +11,11 @@ for _p in (os.path.join(_PROJECT_ROOT, "MiniOneRec"), _PROJECT_ROOT):
         sys.path.insert(0, _p)
 
 from datasets import Dataset
-from trl import GRPOConfig, GRPOTrainer
+# GRPOTrainer is NOT imported on purpose: resolving it makes TRL lazily load
+# trl/trainer/grpo_trainer.py, whose module-level `from vllm import ...`
+# crashes on this box (system vLLM 0.26 dropped transformers-v4 support).
+# We use ReReTrainer below; only GRPOConfig is needed from trl.
+from trl import GRPOConfig
 import random
 import numpy as np
 import torch
