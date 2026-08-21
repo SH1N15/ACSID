@@ -320,7 +320,14 @@ def train(
         args=training_args,
     )
 
-    trainer.train()
+    # Multi-session resume: cloud sessions cap at 8h, GRPO spans several.
+    # trainer.train() with no arg starts FROM SCRATCH even if checkpoints
+    # exist, so probe for the last one explicitly (None -> fresh start).
+    from transformers.trainer_utils import get_last_checkpoint
+    last_ckpt = get_last_checkpoint(output_dir)
+    if last_ckpt:
+        print(f"=== RESUMING from {last_ckpt} ===")
+    trainer.train(resume_from_checkpoint=last_ckpt)
 
     trainer.save_model(output_dir)
 

@@ -116,7 +116,8 @@ SKIP_MODES="" PHASES="eval" SEEDS_STR="42" bash ../acsid_amd/run_experiments.sh
   SKIP_MODES="" PHASES="grpo" SEEDS_STR="42" bash ../acsid_amd/run_experiments.sh
   ```
 - 注意：GRPO 段不读 `SKIP_MODES`，固定只跑 `text adaptive` 两模式（fixed 不进 GRPO，符合计划——fixed 只在 SFT 阶段验证"固定权重 vs adaptive"）。
-- **epoch 2→1（偏离 PLAN_AMD §11.2 的记录）**：实测全量配置 13194 步 × ~7s/步 ≈ 25.7h，远超云实例单会话 8h 上限。2026-08-21 改为 1 epoch（6597 步 ≈ 12.9h），数据保持全量。跨会话靠 checkpoint 续跑：`save_total_limit=1` + optimizer states，断了**原命令重跑自动从最近 checkpoint 恢复**（save_steps=0.25 → 每 ~1650 步一个恢复点）。两 mode 设置完全一致，对比公平性不受影响。
+- **epoch 2→1（偏离 PLAN_AMD §11.2 的记录）**：实测全量配置 13194 步 × ~7.5s/步 ≈ 25.7h，远超云实例单会话 8h 上限。2026-08-21 改为 1 epoch（6597 步 ≈ 13.7h），数据保持全量。两 mode 设置完全一致，对比公平性不受影响。
+- **跨会话续跑机制（已实现）**：`rl.py` 训练前用 `get_last_checkpoint` 探测 `output_dir/grpo_*/checkpoint-*`，有则显式 `trainer.train(resume_from_checkpoint=...)` 续跑（裸 train() 默认从头训！）；`run_experiments.sh` GRPO 循环对已有 `final_checkpoint/` 的 mode 直接跳过。**下个会话只需 git pull 后原样重跑同一条命令**。save_steps=0.25 → 每 ~1650 步一个恢复点（含 optimizer states）。瓶颈在约束 beam search 的 Python 掩码循环（GPU 等喂），micro_batch 已翻倍至 128 无效，group=16 不减，接受跨会话。
 - 前置：先确认 `output_dir/sft_{text,adaptive}_seed42/final_checkpoint/` 还在——§7 的清理只删 `checkpoint-*` 中间产物，保留 `final_checkpoint/`，不要误删。
 
 ### Phase 5：消融与最终分析

@@ -135,6 +135,11 @@ echo "===== GRPO PHASE ====="
 for mode in text adaptive; do
     for seed in "${SEEDS[@]}"; do
         echo "--- GRPO: mode=${mode} seed=${seed} ---"
+        grpo_dir="output_dir/grpo_${mode}_seed${seed}"
+        if [[ -d "${grpo_dir}/final_checkpoint" ]]; then
+            echo "--- GRPO: mode=${mode} seed=${seed} already has final_checkpoint, skipping ---"
+            continue
+        fi
         sft_ckpt="output_dir/sft_${mode}_seed${seed}/final_checkpoint"
         train_file=$(ls -f ${DATA_DIR[$mode]}/train/${DATASET}*.csv)
         eval_file=$(ls -f ${DATA_DIR[$mode]}/valid/${DATASET}*11.csv)
