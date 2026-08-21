@@ -168,6 +168,10 @@ for mode in text adaptive; do
             --wandb_run_name grpo_${mode}_seed${seed} \
             --sid_index_path ${SID_INDEX[$mode]} \
             --item_meta_path ${ITEM_META}
+
+        # free the middle checkpoint (~30GB each, has fp32 adamw_torch states)
+        # before the next mode starts; keep final_checkpoint/ for eval
+        rm -rf output_dir/grpo_${mode}_seed${seed}/checkpoint-*
     done
 done
 fi

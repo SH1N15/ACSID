@@ -273,8 +273,8 @@ def train(
     os.environ["WANDB_MODE"] = "offline"
 
     training_args = GRPOConfig(output_dir=output_dir,
-                                save_steps=0.1,
-                                save_total_limit=20,
+                                save_steps=0.25,
+                                save_total_limit=1,
                                 eval_strategy="steps",
                                 max_completion_length=128,
                                 num_generations=num_generations,
