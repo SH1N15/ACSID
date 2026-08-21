@@ -116,6 +116,7 @@ SKIP_MODES="" PHASES="eval" SEEDS_STR="42" bash ../acsid_amd/run_experiments.sh
   SKIP_MODES="" PHASES="grpo" SEEDS_STR="42" bash ../acsid_amd/run_experiments.sh
   ```
 - 注意：GRPO 段不读 `SKIP_MODES`，固定只跑 `text adaptive` 两模式（fixed 不进 GRPO，符合计划——fixed 只在 SFT 阶段验证"固定权重 vs adaptive"）。
+- **epoch 2→1（偏离 PLAN_AMD §11.2 的记录）**：实测全量配置 13194 步 × ~7s/步 ≈ 25.7h，远超云实例单会话 8h 上限。2026-08-21 改为 1 epoch（6597 步 ≈ 12.9h），数据保持全量。跨会话靠 checkpoint 续跑：`save_total_limit=1` + optimizer states，断了**原命令重跑自动从最近 checkpoint 恢复**（save_steps=0.25 → 每 ~1650 步一个恢复点）。两 mode 设置完全一致，对比公平性不受影响。
 - 前置：先确认 `output_dir/sft_{text,adaptive}_seed42/final_checkpoint/` 还在——§7 的清理只删 `checkpoint-*` 中间产物，保留 `final_checkpoint/`，不要误删。
 
 ### Phase 5：消融与最终分析
