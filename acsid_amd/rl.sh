@@ -30,7 +30,7 @@ for category in "Industrial_and_Scientific"; do
             --info_file "${info_file}" \
             --category ${category} \
             --sample_train False \
-            --eval_step 0.0999 \
+            --eval_step 0.5 \
             --reward_type ranking \
             --num_generations 16 \
             --mask_all_zero False \

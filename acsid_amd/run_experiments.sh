@@ -156,7 +156,7 @@ for mode in text adaptive; do
             --info_file "${info_file}" \
             --category ${DATASET} \
             --sample_train False \
-            --eval_step 0.0999 \
+            --eval_step 0.5 \
             --reward_type ranking \
             --num_generations 16 \
             --mask_all_zero False \
