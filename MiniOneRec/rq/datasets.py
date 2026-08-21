@@ -55,9 +55,11 @@ class FusedEmbDataset(data.Dataset):
 
     `__getitem__` returns a dict so the default PyTorch collate stacks each
     field into a batch along dim 0. The RQ-VAE trainer fuses the three
-    batches at the start of each step; in text mode (z_cf zeros + alpha=0)
-    the fusion collapses to ``Normalize(Normalize(z_text)) == Normalize(z_text)``,
-    so all three modes share one code path and one batch shape.
+    batches at the start of each step via residual injection
+    (``z = z_text + alpha * ||z_text|| * Normalize(P(z_cf))``); z_text is
+    never L2-normalized. In text mode the FusionModule is not constructed
+    and the trainer returns raw z_text unchanged, so all three modes share
+    one code path and one batch shape.
 
     cf_path / alpha_path are optional: when missing or the file does not
     exist, the corresponding array is filled with zeros (alpha defaults to

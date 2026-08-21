@@ -103,16 +103,19 @@ SKIP_MODES="" PHASES="eval" SEEDS_STR="42" bash ../acsid_amd/run_experiments.sh
 
 ## 3. 待完成（下一位 AI）
 
+> 状态：GRPO 段 `sft_ckpt` 路径阻塞已清除（commit `63b850c` 已修），下一位可直接跑 eval → GRPO，无需改任何脚本。
+
 ### Phase 4：GRPO（2 组 × seed=42）
 
 - Text baseline GRPO + Adaptive GRPO
-- **先改一处**：`acsid_amd/run_experiments.sh` 里 GRPO 段的 `sft_ckpt` 当前指向顶层目录 `output_dir/sft_${mode}_seed${seed}`，但 SFT 真正产物在 `final_checkpoint/` 里。改这行再跑：
+- ✅ `sft_ckpt` 路径已修正：`acsid_amd/run_experiments.sh:138` 已指向 `output_dir/sft_${mode}_seed${seed}/final_checkpoint`（commit `63b850c` 修复，eval 段 `:105` 同样已正确）。**无需再改，直接跑：**
   ```bash
-  # run_experiments.sh GRPO 段，改前
-  sft_ckpt="output_dir/sft_${mode}_seed${seed}"
-  # GRPO 段，改后
-  sft_ckpt="output_dir/sft_${mode}_seed${seed}/final_checkpoint"
+  cd /mnt/workspace/ACSID/MiniOneRec
+  source ../.venv-amd/bin/activate
+  SKIP_MODES="" PHASES="grpo" SEEDS_STR="42" bash ../acsid_amd/run_experiments.sh
   ```
+- 注意：GRPO 段不读 `SKIP_MODES`，固定只跑 `text adaptive` 两模式（fixed 不进 GRPO，符合计划——fixed 只在 SFT 阶段验证"固定权重 vs adaptive"）。
+- 前置：先确认 `output_dir/sft_{text,adaptive}_seed42/final_checkpoint/` 还在——§7 的清理只删 `checkpoint-*` 中间产物，保留 `final_checkpoint/`，不要误删。
 
 ### Phase 5：消融与最终分析
 
