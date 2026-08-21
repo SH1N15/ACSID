@@ -142,10 +142,10 @@ for mode in text adaptive; do
 
         python ../acsid_amd/rl.py \
             --model_path "${sft_ckpt}" \
-            --train_batch_size 64 \
+            --train_batch_size 128 \
             --eval_batch_size 128 \
             --num_train_epochs 1 \
-            --gradient_accumulation_steps 2 \
+            --gradient_accumulation_steps 1 \
             --train_file "${train_file}" \
             --eval_file "${eval_file}" \
             --info_file "${info_file}" \
