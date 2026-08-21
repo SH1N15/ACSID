@@ -277,7 +277,8 @@ def train(
     os.environ["WANDB_MODE"] = "offline"
 
     training_args = GRPOConfig(output_dir=output_dir,
-                                save_steps=0.25,
+                                save_steps=0.075,  # ~495 steps ~= 75 min at ~9.3s/it; 8h cloud sessions die mid-run,
+                                                    # so recovery points must be much denser than the old 25% (=4.6h)
                                 save_total_limit=1,
                                 eval_strategy="steps",
                                 max_completion_length=128,
