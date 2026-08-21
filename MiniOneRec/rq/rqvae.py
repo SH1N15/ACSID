@@ -96,7 +96,9 @@ if __name__ == "__main__":
 
     All three modes go through FusedEmbDataset so the data pipeline stays
     uniform. cf_path/alpha_path are read only when provided; in text mode
-    both arrays are zeros and the fusion collapses to L2norm(text).
+    no FusionModule is built and the trainer returns raw z_text (residual
+    injection: z = z_text + alpha * ||z_text|| * Normalize(P(z_cf)),
+    z_text never normalized).
     """
     cf_path = args.cf_path if args.cf_path else None
     alpha_path = args.alpha_path if args.alpha_path else None
