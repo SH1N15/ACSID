@@ -47,7 +47,7 @@ P 只学方向，幅度由 alpha 调度。z_text 永不归一化。
 
 ### Phase 3：SFT 训练 ✅（3 组 × seed=42）
 
-三模式 SFT 全部完成（text 早停 epoch 6.5，fixed/adaptive 正常跑完）。
+三模式 SFT 全部完成。text/fixed/adaptive 三组均触发 early stopping（patience=3，eval_loss 收敛后停，具体 epoch 以各自 `trainer_state.json` 为准）。
 
 **运行产物位置**（`/mnt/workspace/ACSID/MiniOneRec/`）：
 ```
