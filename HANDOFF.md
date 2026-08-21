@@ -1,118 +1,218 @@
-# ACSID — `acsid-amd` 分支交接文档
+# ACSID — acsid-amd 分支交接文档 v2
 
-> 交接日期：2026-08-20
-> 交接时分支状态：`acsid-amd` @ `9ccf0a6`（已与 `origin/acsid-amd` 同步，工作区内容干净）
+> 交接时间：2026-08-20 深夜（Phase 3 SFT 三模式训练完成，SFT 评测待跑）
+> 分支：`acsid-amd`，远程：`https://github.com/SH1N15/ACSID.git`（私有，`gh` 登录账号 `SH1N15`）
+> 分支状态：所有 commit 已 push 到 `origin/acsid-amd`，工作树干净
+> 云端环境：1x AMD MI300X 192GB / ROCm 7.2.3 / torch 2.11.0 / Python 3.12
 
-## 1. 仓库 / 分支
+---
 
-- **remote**: `https://github.com/SH1N15/ACSID.git`（私有，`gh` 登录账号 `SH1N15`）
-- **当前分支**: `acsid-amd` — AMD MI300X 全参数方案
-- **对比分支**: `main` — A10 24GB QLoRA 方案（Phase 2 代码完成，未跑训练）
+## 1. 项目本质
 
-## 2. 项目本质
+ACSID：把协同过滤信号（Item2Vec）前移到 RQ-VAE 输入阶段，与文本 embedding 融合生成 SID。下游 SFT/GRPO/Constrained Decoding 完全复用官方 MiniOneRec，只换 SID 映射表。
 
-ACSID（Adaptive Collaborative Semantic ID）：
-把协同过滤信号（Item2Vec）**前移到 RQ-VAE 输入阶段**，通过学习投影 `P` + 逐 item 自适应权重 `alpha_i` 融合进 SID 构造；下游 SFT / GRPO / 约束解码不改。
-产出三套 SID（`text` / `fixed` / `adaptive`），目标是证明 **ACSID 降低碰撞率** 且 **优于 text-only**。
-完整方法见 `PROJECT_PLAN.md`（A10 版）与 `acsid_amd/PLAN_AMD.md`（AMD 版）。
-
-核心公式（v2 残差注入，2026-08-20 重构，见 §5 决策记录）：
-```
-alpha_i = alpha_max * min(1, log(1+n_i) / log(1+n_ref))   # adaptive
-z_i = z_text + alpha_i * ||z_text|| * Normalize(P(z_cf))  # text 模式: z_i = z_text（原始，等价 upstream）
-```
-
-## 3. 硬件 / 环境
-
-- **1x AMD Instinct MI300X 192GB HBM3**
-- 云端镜像：`ubuntu22.04-rocm7.2.3-py312-torch2.11.0-1.39.0`
-- 云端工作目录：`/mnt/workspace/ACSID`（Linux, root）
-- 隔离 venv：`.venv-amd`（`--system-site-packages` 继承系统 torch 2.11+ROCm 7.2.3）
-  - 需手动激活：`source .venv-amd/bin/activate`
-  - 环境脚本：`acsid_amd/setup_env.sh`（幂等，可重建）
-
-## 4. 目录结构
+**方法公式（v2 残差注入，2026-08-20 重构后已验证）**：
 
 ```
-acsid/                      # 与 main 共享的核心创新代码
-  item2vec.py               # Item2Vec/SGNS，仅 train，CPU
-  adaptive_fusion.py        # compute_alpha + FusionModule(P + 残差注入)
-  generate_sid.py           # 端到端编排（RQVAE+P -> 3 套 index.json -> 重写 CSV，check=True fail-fast）
-  regenerate_csv_sid.py     # 绕开 .inter，只重写 CSV SID 列 + info/*.txt
-  analyze_collision.py      # 碰撞率 / Unique SID Ratio 对比
-acsid_amd/                  # AMD 独有
-  PLAN_AMD.md               # AMD 方案文档
-  sft.py  rl.py             # 全参数适配（删 bnb，optim=adamw_torch，sys.path 注入等）
-  sft.sh  rl.sh  run_experiments.sh   # 自定位单卡启动
-  setup_env.sh              # 隔离 venv 构建
-  requirements.txt          # ROCm 兼容依赖
-  config/zero2_opt.yaml     # 单卡备份配置（未被脚本引用）
-  README.md                 # AMD 运行指南
-MiniOneRec/rq/              # RQ-VAE 改动（datasets/rqvae/trainer/generate_indices）
-experiments/                # run_phase2_sid.sh + results/collision.json
+alpha_i = alpha_max * min(1, log(1+n_i) / log(1+n_ref))
+z_i = z_text + alpha_i * ||z_text|| * Normalize(P(z_cf))
 ```
 
-## 5. 待决问题 → 已决策（2026-08-20）
+text 模式（无 CF）：`z_i = z_text`（纯原始文本，等价 upstream MiniOneRec）
+fixed 模式：`alpha_i = alpha_max = 0.3`（所有 item 常量）
+adaptive 模式：`alpha_i` 按上式，冷启动 `alpha_i=0` 退化为纯文本
+P 只学方向，幅度由 alpha 调度。z_text 永不归一化。
 
-### 碰撞率异常高 —— 已修复：融合范式重构为残差注入
-- **现象**：text 碰撞率 0.65 / fixed 0.85 / adaptive 0.85（upstream 0.004）；level-0 codebook 仅用 1-3/256 token；recon loss 0.0000。
-- **根因确认**：所有模式对 `z_text` 做 L2-normalize（`trainer._prepare_input`），压塌到单位球面 + Qwen embedding 各向异性 → codebook argmin 塌缩。且 fixed/adaptive 的 CF 信息实际被球面加权稀释，根本没有注入（这解释了为何比 text 更糟）。
-- **为什么没走原候选方案 A/B/C**：方案 A（text 侧不 normalize、其余保留）有内在矛盾——z_text 保持大尺度而 `Normalize(P(z_cf))` 在单位球面，α=0.3 时 CF 相对贡献仅约 2%，α 语义失效；且融合后再 Normalize 仍会塌回球面（≈当前已塌缩的 text 路径 + 噪声）。
-- **已实施（残差注入）**：`z_i = z_text + α_i·‖z_text‖·Normalize(P(z_cf))`；方向由 P 学习、幅度由 α 调度，z_text 永不归一化，text 基线逐字节等价 upstream。改动：
-  1. `acsid/adaptive_fusion.py::FusionModule.forward` — 残差式重写；删除死代码 `fuse_full`
-  2. `MiniOneRec/rq/trainer.py::_prepare_input` — text 分支返回原始 z_text
-  3. `MiniOneRec/rq/generate_indices.py::build_fused_matrix` — text 分支同步
-  4. `trainer.py` — 梯度裁剪纳入 fusion/P 参数（原 bug：只 clip RQ-VAE）
-  5. `acsid/generate_sid.py` — 训练前清理该 mode 旧 ckpt 目录（防 mtime 误选中止残留）；`--force_regen` 强制重生成 cf/alpha
-  6. 文档同步：PLAN_AMD / PROJECT_PLAN §2.3-2.4、§11.5、§12.5，acsid/README
-- **待办**：云端重跑三模式 RQ-VAE + analyze_collision 验证。验收：text ≤ 0.01（upstream 量级）；方向预期 adaptive ≤ fixed ≤ text；若 fixed/adaptive ≈ text 则为 P 未学到方向的安全失败，调 α_max 或上 P 两步预热，不推翻范式。
+---
 
-## 6. 云端上次运行状态
+## 2. 已完成
 
-- 三模式 RQ-VAE 全量训练被**手动中止**（碰撞率异常，需先决定 §5 再重跑）。
-- 依赖/环境已确认可用：torch 2.11 ROCm 可见；缺 scikit-learn 已补；RQ-VAE 能起训练。
-- 正确跑法是 `bash acsid_amd/setup_env.sh` → `source .venv-amd/bin/activate` → 从 `MiniOneRec/rq/` 跑 `generate_sid.py`。
+### Phase 2：SID 构造 ✅（三套 SID 均可用，已入库）
 
-## 7. 建议接手第一步
+残差注入范式验证通过，碰撞率全面收敛：
 
-1. `cd /mnt/workspace/ACSID && git pull origin acsid-amd`（残差注入改动已推送）
-2. 冒烟验证（text 模式，短 epochs，确认 level-0 distinct 恢复）：
-   ```bash
-   cd MiniOneRec/rq && source ../../.venv-amd/bin/activate
-   python ../../acsid/generate_sid.py --dataset Industrial_and_Scientific \
-     --epochs 200 --batch_size 2048 --eval_step 50 --device cuda:0 --modes text
-   ```
-   通过标准：level-0 distinct token 明显大于 3（塌缩时只有 3）。
-3. 全量三模式：
-   ```bash
-   python ../../acsid/generate_sid.py --dataset Industrial_and_Scientific \
-     --epochs 10000 --batch_size 20480 --eval_step 50 --device cuda:0 \
-     --modes text fixed adaptive
-   ```
-4. 碰撞对比：
-   ```bash
-   python ../../acsid/analyze_collision.py --base ../data/Amazon \
-     --dataset Industrial_and_Scientific --include_upstream \
-     --out_json ../../experiments/results/collision.json
-   ```
-   核对 upstream vs text/fixed/adaptive（验收见 §5 待办）。
+| mode | collision_rate | unique | level-0 distinct |
+|---|---|---|---|
+| upstream | 0.0043 | 3670/3686 | 48 |
+| text | 0.0030 | 3675/3686 | 86 |
+| **fixed** | **0.0** | **3686/3686** | 79 |
+| **adaptive** | **0.0011** | **3682/3686** | 56 |
 
-## 8. 已修复 Bug 清单（供排查参考，勿重复定位）
+文件：`experiments/results/collision.json`（已提交入库）
 
-1. `acsid_amd/rl.py` 语法错误（`optim="..."` 逗号落进注释）→ py_compile 抓到
-2. `acsid_amd/sft.py`/`rl.py` 缺 `sys.path` 注入（导入 MiniOneRec 包失败）
-3. `acsid_amd/sft.py` `freeze_LLM` NameError（`original_vocab_size` 未定义）
-4. `acsid_amd/sft.py` TokenExtender 忽视多模式 `--sid_index_path`
-5. `acsid_amd/sft.sh`/`rl.sh`/`run_experiments.sh` cwd 错位 → 自定位
-6. `acsid_amd/setup_env.sh` heredoc 语法错误；半残 venv 检测；不再 `--upgrade setuptools`
-7. `acsid_amd/requirements.txt` 8 个坏 pin（`==` 指向不存在的 PyPI 版本）+ 缺 `scikit-learn`
-8. `acsid/regenerate_csv_sid.py` glob 太宽（匹配到 Office_Products）+ `item.json` 路径（`index/` 子目录）
-9. `MiniOneRec/rq/trainer.py` `delete_file(old_save)` 缺 `[1]`；`utils.py::delete_file` tuple 防御
-10. `acsid/generate_sid.py` 显式 `--item_json` + `subprocess.run(check=True)` fail-fast
+关键工程修复：
+- `trainer.py` fast path：`len(dataset) <= batch_size` 时全量常驻 GPU，10000 epochs 从 ~2h 降至 ~20 分钟
+- grad clipping 覆盖 RQ-VAE + Fusion 两层
+- `generate_sid.py`：旧 ckpt 目录清理（防 mtime 误选）+ `--force_regen`
 
-## 9. 注意事项 / 已知环境陷阱
+### Phase 3：SFT 训练 ✅（3 组 × seed=42）
 
-- 云端 GitHub 访问偶尔不稳（`github.com:443` 偶发 reset，`api.github.com` 正常）→ push 失败重试即可，非仓库问题。
-- `requirements.txt` 不 pin torch（避免拉 CUDA/CPU wheel）；继承镜像预装 torch。
-- 不要在云端 `pip install --upgrade setuptools`（会撞系统 torch<82 / vllm<80 约束）。
-- SID 构造的 RQ-VAE 部署在 `MiniOneRec/rq/`，运行 cwd 必须是 `MiniOneRec/rq/`。
+三模式 SFT 全部完成（text 早停 epoch 6.5，fixed/adaptive 正常跑完）。
+
+**运行产物位置**（`/mnt/workspace/ACSID/MiniOneRec/`）：
+```
+output_dir/sft_text_seed42/final_checkpoint/    # 只有 safetensors + tokenizer（可加载）
+output_dir/sft_fixed_seed42/final_checkpoint/
+output_dir/sft_adaptive_seed42/final_checkpoint/
+
+# 其余 checkpoint-XXX/ 是中间产物，可删（释放 ~100GB）
+```
+
+**SFT 加速配置（最终稳定版）**：
+| 项 | 值 |
+|---|---|
+| micro_batch_size | 64 |
+| gradient_accumulation | 1024/64=16（脚本自动算） |
+| precision | bf16 |
+| attention | `attn_implementation="sdpa"`（SDPA kernel）|
+| gradient_checkpointing | False |
+| dataloader | 默认（数据充足，不瓶颈） |
+| torch.compile | False（ROCm 不稳定） |
+
+### Phase 3 评测（待跑 ⬅️ 最优先）
+
+三模式各跑一次 `evaluate.py + calc.py`，产出 HR/NDCG/CC。
+
+```bash
+cd /mnt/workspace/ACSID/MiniOneRec
+source ../.venv-amd/bin/activate
+
+for mode in text fixed adaptive; do
+  python evaluate.py \
+    --base_model output_dir/sft_${mode}_seed42/final_checkpoint \
+    --info_file "./data/Amazon/${mode}/info/Industrial_and_Scientific_5_2016-10-2018-11.txt" \
+    --category Industrial_and_Scientific \
+    --test_data_path "./data/Amazon/${mode}/test/Industrial_and_Scientific_5_2016-10-2018-11.csv" \
+    --result_json_data results/eval_sft_${mode}_seed42.json \
+    --num_beams 50 --max_new_tokens 256 --length_penalty 0.0 --batch_size 8 --seed 42
+
+  python calc.py \
+    --path results/eval_sft_${mode}_seed42.json \
+    --item_path "./data/Amazon/${mode}/info/Industrial_and_Scientific_5_2016-10-2018-11"
+done
+```
+
+**预期产物**：每组打印 NDCG@1/3/5/10/20/50、HR@1/3/5/10/20/50、CC（非法 SID 计数）。把三组输出发给下一位 AI 汇总对比。
+
+或用 run_experiments.sh 统一跑：
+```bash
+SKIP_MODES="" PHASES="eval" SEEDS_STR="42" bash ../acsid_amd/run_experiments.sh
+```
+
+---
+
+## 3. 待完成（下一位 AI）
+
+### Phase 4：GRPO（2 组 × seed=42）
+
+- Text baseline GRPO + Adaptive GRPO
+- **先改一处**：`acsid_amd/run_experiments.sh` 里 GRPO 段的 `sft_ckpt` 当前指向顶层目录 `output_dir/sft_${mode}_seed${seed}`，但 SFT 真正产物在 `final_checkpoint/` 里。改这行再跑：
+  ```bash
+  # run_experiments.sh GRPO 段，改前
+  sft_ckpt="output_dir/sft_${mode}_seed${seed}"
+  # GRPO 段，改后
+  sft_ckpt="output_dir/sft_${mode}_seed${seed}/final_checkpoint"
+  ```
+
+### Phase 5：消融与最终分析
+
+- alpha 消融已随主实验完成（alpha=0→text，0.3 固定→fixed，自适应→adaptive）
+- 分层分析：冷启 item vs 热门 item 分别看 HR/NDCG
+- Case study：text 中碰撞 item 对在 adaptive 中是否分开
+
+### Phase 6：工程化文档
+
+README 环境配置、复现步骤、实验结果。面试故事材料。
+
+---
+
+## 4. 重要环境坑（云端踩过的）
+
+1. **存储上限 100GB**：单个 SFT checkpoint ~18GB（optimizer.pt 11.5GB + 模型 5.7GB），三个满了就满了。seed=123 已取消（不过加 seed 很容易，改过 epochs=5 就够）。
+
+2. **bitsandbytes 不可用**：ROCm 没有 bnb build，evaluate.py 已删死 import。
+
+3. **transformers 4.57 `resize_token_embeddings`**：`mean_resizing=True` 会调用 `torch.linalg.cholesky_ex`（无 LAPACK）→ `sft.py` 已用 `mean_resizing=False` + try/except 降级。
+
+4. **wandb 非交互模式**：必须设 `WANDB_MODE=disabled`，不然 nohup 下 prompt 卡死。已在 `sft.py` 里内置。
+
+5. **显存问题**：micro_batch=64 + bf16 能跑（97% VRAM 但不 OOM），128 会 OOM。
+
+6. **ROCm 上 python 进程遗留**：上次 text 训练结束后 GPU 显存没释放，不影响（下一个进程正常重新占用）。
+
+7. **GitHub 偶发网络 reset**：push 失败重试。
+
+8. **qwen3-embedding 4B**：如果不是 ModelScope 下载，地址在 https://www.modelscope.cn/models/Qwen/Qwen3-Embedding-4B。
+
+---
+
+## 5. 文件地图
+
+```
+acsid/                          # SID 构造核心（两分支共享）
+  adaptive_fusion.py             # 残差注入公式（v2）
+  generate_sid.py                # 编排器（Item2Vec→alpha→3×RQ-VAE→index→CSV）
+  regenerate_csv_sid.py          # SID 列替换
+  analyze_collision.py           # 碰撞率统计
+
+acsid_amd/                      # AMD 分支独有
+  sft.py                         # SFT 入口（bf16全参数，SDPA，无LoRA/bnb）
+  rl.py                          # GRPO 入口（adamw_torch）
+  sft.sh / rl.sh                # 单次启动模板
+  run_experiments.sh             # 总控（PHASES/SEEDS_STR/SKIP_MODES 可调）
+  setup_env.sh                   # venv 构建（幂等）
+
+MiniOneRec/                     # 原仓库
+  rq/trainer.py                  # RQ-VAE trainer（fast path + grad clip 完整）
+  rq/generate_indices.py         # build_fused_matrix（残差路径与 trainer 一致）
+  evaluate.py                    # 评测生成（受约束 beam search）
+  calc.py                        # HR/NDCG 计算
+  data.py                        # 数据集类（CSV/JSON 两套）
+
+experiments/
+  results/collision.json          # Phase 2 碰撞率结果
+  run_phase2_sid. Experiment entry point.
+
+HANDOFF.md                      # 本文档（交接用）
+PROJECT_PLAN.md                 # A10 版方案文档（QLoRA 分支 main）
+PLAN_AMD.md                     # AMD 版方案文档（本文档）
+```
+
+---
+
+## 6. 关键 commit 链（最近 10 个）
+
+```
+2c971b2 perf: drop useless dataloader/HIP optimizations (GPU already compute-bound)
+760558d results: final Phase 2 collision rates (residual injection)
+63b850c feat: SKIP_MODES env var; point eval/GRPO at final_checkpoint
+b10c114 fix: set WANDB_MODE=disabled in sft.py directly
+e8ff831 → 98eae8a: 几轮调优和回退（TF32/cudnn/group_by_length 试了发现没用）
+4f63378 perf: SDPA attention + micro_batch=64 (128 OOM'd)
+a3a6306 docs: reduce experiment to single seed (42) — 100GB storage constraint
+0b8ae63 feat: rework fusion to residual injection; text path equals upstream
+```
+
+## 7. 下一位 AI 接手第一步
+
+```bash
+# 1. 拉代码
+cd /mnt/workspace/ACSID && git pull origin acsid-amd
+
+# 2. 确认三个 SFT checkpoint 都在
+ls -la output_dir/sft_text_seed42/final_checkpoint/
+ls -la output_dir/sft_fixed_seed42/final_checkpoint/
+ls -la output_dir/sft_adaptive_seed42/final_checkpoint/
+
+# 3. 跑评测（最优先）
+cd MiniOneRec && source ../.venv-amd/bin/activate
+SKIP_MODES="" PHASES="eval" SEEDS_STR="42" bash ../acsid_amd/run_experiments.sh
+
+# 4. 把三组 calc.py 输出发给 AI 分析
+
+# 5. 清理中间 checkpoint（释放 ~100GB）
+rm -rf output_dir/sft_*/checkpoint-*
+```
+
+---
+*文档写入：2026-08-20，acsid-amd 分支，HEAD 2c971b2*
