@@ -1,6 +1,6 @@
 # ACSID — acsid-amd 分支交接文档 v2
 
-> 交接时间：2026-08-20 深夜（Phase 3 SFT 三模式训练完成，SFT 评测待跑）
+> 交接时间：2026-08-21（Phase 3 SFT 评测跑完，三模式 HR/NDCG/CC 已出；下一步 Phase 4 GRPO）
 > 分支：`acsid-amd`，远程：`https://github.com/SH1N15/ACSID.git`（私有，`gh` 登录账号 `SH1N15`）
 > 分支状态：所有 commit 已 push 到 `origin/acsid-amd`，工作树干净
 > 云端环境：1x AMD MI300X 192GB / ROCm 7.2.3 / torch 2.11.0 / Python 3.12
@@ -69,30 +69,31 @@ output_dir/sft_adaptive_seed42/final_checkpoint/
 | dataloader | 默认（数据充足，不瓶颈） |
 | torch.compile | False（ROCm 不稳定） |
 
-### Phase 3 评测（待跑 ⬅️ 最优先）
+### Phase 3 评测 ✅（2026-08-21 跑完，三模式 evaluate.py + calc.py）
 
-三模式各跑一次 `evaluate.py + calc.py`，产出 HR/NDCG/CC。
+> 命令：`SKIP_MODES="" PHASES="eval" SEEDS_STR="42" bash ../acsid_amd/run_experiments.sh`（log 在 `MiniOneRec/logs/eval_sft_phase3_*.log`，每 ~32 分钟 beam search）
 
-```bash
-cd /mnt/workspace/ACSID/MiniOneRec
-source ../.venv-amd/bin/activate
+结果（test 4533 条，beam=50，CC=非法 SID 计数）：
 
-for mode in text fixed adaptive; do
-  python evaluate.py \
-    --base_model output_dir/sft_${mode}_seed42/final_checkpoint \
-    --info_file "./data/Amazon/${mode}/info/Industrial_and_Scientific_5_2016-10-2018-11.txt" \
-    --category Industrial_and_Scientific \
-    --test_data_path "./data/Amazon/${mode}/test/Industrial_and_Scientific_5_2016-10-2018-11.csv" \
-    --result_json_data results/eval_sft_${mode}_seed42.json \
-    --num_beams 50 --max_new_tokens 256 --length_penalty 0.0 --batch_size 8 --seed 42
+| metric | text 基线 | fixed α=0.3 | adaptive 我们 | adaptive vs text | fixed vs text |
+|---|---|---|---|---|---|
+| NDCG@1  | 0.0547 | 0.0688 | 0.0613 | +12% | +26% |
+| NDCG@5  | 0.0667 | 0.0877 | 0.0778 | +17% | +31% |
+| NDCG@10 | 0.0734 | 0.0952 | 0.0850 | +16% | +30% |
+| NDCG@50 | 0.0911 | 0.1167 | 0.1031 | +13% | +28% |
+| HR@5    | 0.0774 | 0.1059 | 0.0935 | +21% | +37% |
+| HR@10   | 0.0984 | 0.1295 | 0.1160 | +18% | +32% |
+| HR@50   | 0.1802 | 0.2296 | 0.1999 | +11% | +27% |
+| CC      | 0      | 0      | 0      | —    | —    |
 
-  python calc.py \
-    --path results/eval_sft_${mode}_seed42.json \
-    --item_path "./data/Amazon/${mode}/info/Industrial_and_Scientific_5_2016-10-2018-11"
-done
-```
+完整 NDCG/HR@{1,3,5,10,20,50} 已在归档 log。CC 全 0，constrained decoding 干净。
 
-**预期产物**：每组打印 NDCG@1/3/5/10/20/50、HR@1/3/5/10/20/50、CC（非法 SID 计数）。把三组输出发给下一位 AI 汇总对比。
+**结论**：
+1. **证明目标 #2（ACSID 提升 SFT 推荐性能）成立** —— adaptive 在 NDCG/HR 所有 K 上全面胜过 text 基线（+11%~+21%）。
+2. **意外发现**：fixed > adaptive > text。fixed（α=0.3 常量）反超 adaptive ~10%。**机制假设**：adaptive 对冷启 item 令 α=0 退出 CF（安全但放弃信号），fixed 对所有 item 一律 α=0.3（含冷启），齐齐残差位移使 collision 也最低（0.0 vs 0.0011）。alpha=0.3 恰可能比自适应更稳定的位移幅度。**待 Phase 5 分层验证**（按 item 流行度分组对比 HR/NDCG，证实是否冷启 item 的损失拖低了 adaptive）。
+3. fixed>adaptive 不否定 adaptive 的冷启安全性价值，但叙事点要诚实——这是消融结果的一部分，Phase 5 正式分析。
+
+产物：`MiniOneRec/results/eval_sft_{text,fixed,adaptive}_seed42.json`，`MiniOneRec/logs/eval_sft_phase3_*.log`。
 
 或用 run_experiments.sh 统一跑：
 ```bash
