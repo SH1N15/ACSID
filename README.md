@@ -140,8 +140,8 @@ Run `git log -- MiniOneRec/rq/` to see them.
 ## Status
 
 All planned experiments complete (Phase 2 SID construction, Phase 3 SFT+eval,
-Phase 4 GRPO+eval, Phase 5 stratified analysis + case study). `main` **is**
-the executed MI300X path (merged from `acsid-amd`, which stays as the
-development branch); the superseded A10/QLoRA-era plan is preserved under the
-`a10-archive` tag. Operational history and every environment pitfall:
+Phase 4 GRPO+eval, Phase 5 stratified analysis + case study). Single-branch
+repo: the executed MI300X path lives on `main` (the `acsid-amd` branch was
+merged in and deleted); the superseded A10/QLoRA-era plan is preserved under
+the `a10-archive` tag. Operational history and every environment pitfall:
 [`HANDOFF.md`](HANDOFF.md).
