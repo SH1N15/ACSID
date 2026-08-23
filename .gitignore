@@ -7,6 +7,10 @@ __pycache__/
 MiniOneRec/rq/output/
 acsid/output/
 
+# LLM training outputs (SFT/GRPO checkpoints, incl. locally-archived
+# grpo_adaptive weights — too large for git, never tracked)
+MiniOneRec/output_dir/
+
 # OS / editor noise
 .DS_Store
 Thumbs.db
@@ -21,3 +25,6 @@ acsid_amd/__pycache__/
 
 # ZCode CLI workspace-local plans/memory — tooling-internal, not project content
 .zcode/
+
+# AMD incentive-program articles — private draft content, not for the repo
+docs/
