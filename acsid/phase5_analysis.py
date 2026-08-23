@@ -138,6 +138,18 @@ def main() -> None:
             rev["".join(toks)].append(int(iid))
         rev_index[mode] = dict(rev)
 
+    # cross-mode common subset: exclude any target item whose SID collides in
+    # ANY mode, so every bucket compares the SAME samples across modes.
+    # (text alone has 11 collision groups ~= 260 popular test targets that are
+    # easy hits for text -- keeping them in only some modes' buckets inflates
+    # cross-mode deltas.)
+    ambiguous_ids = set()
+    for mode in rev_index:
+        for ids in rev_index[mode].values():
+            if len(ids) > 1:
+                ambiguous_ids.update(ids)
+    print(f"collision-ambiguous items (any mode, excluded from ALL modes' buckets): {len(ambiguous_ids)}")
+
     print(f"items={len(freq)}  cold_items={(freq == 0).sum()}  "
           f"n_ref(median nonzero)={np.median(freq[freq > 0]):.0f}")
     print(f"mean adaptive alpha per bucket: "
@@ -150,47 +162,56 @@ def main() -> None:
     for key, mode in EVAL_FILES.items():
         with open(EVAL_PATHS[key], "r", encoding="utf-8") as f:
             data = json.load(f)
-        ranks, per_bucket = [], defaultdict(list)
-        unknown = ambiguous = 0
+        ranks, per_bucket, common_ranks = [], defaultdict(list), []
+        excluded = 0
         for s in data:
             r = rank_of_target(s)
             ranks.append(r)
             ids = rev_index[mode].get(target_sid(s))
-            if ids is None:
-                unknown += 1
-            elif len(ids) > 1:
-                ambiguous += 1  # collision SID: item id not resolvable, skip bucketing
-            else:
-                per_bucket[bucket_of.get(ids[0], "cold")].append(r)
+            if ids is None or len(ids) > 1 or ids[0] in ambiguous_ids:
+                excluded += 1
+                continue
+            per_bucket[bucket_of.get(ids[0], "cold")].append(r)
+            common_ranks.append(r)
         overall = metrics(ranks)
+        common_all = metrics(common_ranks)
         ref = REFERENCE[key]
         flag = "OK" if abs(overall["NDCG@10"] - ref) < 0.002 else "MISMATCH!"
         if flag != "OK":
             mismatches.append(key)
         print(f"{key:14s} NDCG@10={overall['NDCG@10']:.4f}  (calc.py {ref})  {flag}"
-              f"  unknown_sid={unknown}  collision_sid={ambiguous}")
+              f"  common_n={common_all['n']} (excluded {excluded})")
         strat[key] = {b: metrics(per_bucket[b]) for b in ["cold", "low", "mid", "high"]}
         strat[key]["ALL"] = overall
+        strat[key]["COMMON"] = common_all
     if mismatches:
         print(f"\n*** VALIDATION FAILED for {mismatches} -- stratified tables below are NOT trustworthy ***")
         sys.exit(1)
 
     for metric in ["NDCG@10", "HR@10", "NDCG@5", "HR@5"]:
-        print(f"\n===== {metric} by target-popularity bucket =====")
+        print(f"\n===== {metric} by target-popularity bucket (common subset) =====")
         print(f"{'bucket':8s}" + "".join(f"{k:>15s}" for k in EVAL_FILES))
-        for b in ["cold", "low", "mid", "high", "ALL"]:
+        for b in ["cold", "low", "mid", "high", "COMMON", "ALL"]:
             row = f"{b:8s}"
             for k in EVAL_FILES:
                 row += f"{strat[k][b][metric]:15.4f}"
-            if b != "ALL":
+            if b not in ("ALL",):
                 row += f"   (n={strat['sft_text'][b]['n']})"
+            else:
+                row += "   (n=4533, raw)"
             print(row)
 
-    print("\n===== deltas: adaptive - text (NDCG@10) =====")
+    print("\n===== deltas: adaptive - text (NDCG@10, common subset) =====")
     for stage in ["sft", "grpo"]:
-        for b in ["cold", "low", "mid", "high", "ALL"]:
+        for b in ["cold", "low", "mid", "high", "COMMON"]:
             d = strat[f"{stage}_adaptive"][b]["NDCG@10"] - strat[f"{stage}_text"][b]["NDCG@10"]
-            print(f"{stage:5s} {b:6s} {d:+.4f}")
+            print(f"{stage:5s} {b:8s} {d:+.4f}")
+
+    print("\n===== deltas: GRPO - SFT within mode (NDCG@10, common subset) =====")
+    for mode in ["text", "adaptive"]:
+        for b in ["low", "mid", "high", "COMMON"]:
+            d = strat[f"grpo_{mode}"][b]["NDCG@10"] - strat[f"sft_{mode}"][b]["NDCG@10"]
+            print(f"{mode:9s} {b:8s} {d:+.4f}")
 
     # ---- collision case study ----------------------------------------------
     print("\n===== case study: text-collision groups vs adaptive/fixed =====")
