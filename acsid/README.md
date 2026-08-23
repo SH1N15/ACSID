@@ -3,8 +3,8 @@
 Injects collaborative-filtering (Item2Vec) signals into the **RQ-VAE input**
 stage via a learnable projection `P` and per-item adaptive weight `alpha_i`,
 instead of at the RL reward stage. The downstream SFT / GRPO / constrained
-decoding are untouched — only the SID construction changes. See
-`PROJECT_PLAN.md` for the full design.
+decoding are untouched — only the SID construction changes. See the root
+`README.md` for the full design summary.
 
 Fusion paradigm (v2, 2026-08-20): **residual injection** —
 `z_i = z_text + α_i · ‖z_text‖ · Normalize(P(z_cf))`. The earlier spherical

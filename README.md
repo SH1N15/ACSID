@@ -73,9 +73,11 @@ fixed   : α_i = 0.3 for every item
 adaptive: α_i per formula; cold-start items (n_i=0) degenerate to pure text
 ```
 
-Design docs: [`PROJECT_PLAN.md`](PROJECT_PLAN.md) (A10 variant),
-[`acsid_amd/PLAN_AMD.md`](acsid_amd/PLAN_AMD.md) (this branch's plan),
-[`acsid/README.md`](acsid/README.md) (Phase 2 architecture).
+Design docs: [`acsid/README.md`](acsid/README.md) (Phase 2 architecture:
+fusion module, orchestrator, collision analysis). The original planning
+documents (A10 QLoRA variant + MI300X plan) were removed in the 2026-08-23
+cleanup; the executed plan's outcomes live in this README and
+[`HANDOFF.md`](HANDOFF.md).
 
 ## Repo layout
 
@@ -85,7 +87,7 @@ acsid/              SID construction core (shared by both hardware branches):
                     · analyze_collision · phase5_analysis
 acsid_amd/          MI300X branch: sft.py / rl.py (full-param bf16, adamw_torch),
                     sft.sh / rl.sh / run_experiments.sh (PHASES/SEEDS/SKIP_MODES),
-                    setup_env.sh, PLAN_AMD.md
+                    setup_env.sh
 MiniOneRec/         vendored upstream (arXiv:2510.24431) with ACSID edits in rq/*.py;
                     evaluate.py / calc.py / minionerec_trainer.py used as-is
 experiments/        run scripts + results/ (collision.json, phase5_analysis.json)
