@@ -37,7 +37,37 @@ for _p in (_THIS_DIR, _PROJECT_ROOT):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from adaptive_fusion import compute_item_freq  # noqa: E402  (same package dir)
+def compute_item_freq(train_csv: str) -> "np.ndarray":
+    """Mirror of adaptive_fusion.compute_item_freq (pandas only, no torch import
+    so the analysis runs on GPU-less boxes)."""
+    import pandas as pd
+
+    df = pd.read_csv(train_csv)
+    max_id = -1
+    counts: dict[int, int] = {}
+
+    def _bump(item_ids) -> None:
+        nonlocal max_id
+        for x in item_ids:
+            x = int(x)
+            counts[x] = counts.get(x, 0) + 1
+            if x > max_id:
+                max_id = x
+
+    for hist, tgt in zip(df["history_item_id"], df["item_id"]):
+        try:
+            history_list = eval(hist) if isinstance(hist, str) else hist  # noqa: S307
+        except Exception:
+            history_list = []
+        if history_list is None:
+            history_list = []
+        _bump(history_list)
+        _bump([int(tgt)])
+
+    arr = np.zeros(max(max_id + 1, 0), dtype=np.int64)
+    for k, v in counts.items():
+        arr[k] = v
+    return arr
 
 DATASET = "Industrial_and_Scientific"
 ALPHA_MAX = 0.3
@@ -117,7 +147,10 @@ def metrics(ranks: list[int | None]) -> dict:
 
 
 def main() -> None:
-    train_csv = sorted(glob.glob("data/Amazon/text/train/*.csv"))[0]
+    # per-mode train CSV preferred; upstream top-level is identical for item
+    # frequencies (only SID columns differ between modes)
+    train_csv = sorted(glob.glob("data/Amazon/text/train/*.csv")
+                       or glob.glob("data/Amazon/train/*.csv"))[0]
     freq = compute_item_freq(train_csv)
     bucket_of, mean_alpha = make_buckets(freq)
 
