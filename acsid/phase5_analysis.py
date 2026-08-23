@@ -2,10 +2,12 @@
 
 Inputs (paths relative to MiniOneRec/, overridable via CLI):
   - results/eval_{sft,grpo}_{mode}_seed42.json   per-sample predictions
-  - data/Amazon/{mode}/info/*.txt                name <-> item id (line position)
+                                                 (predict/output are SID strings
+                                                 in THAT mode's SID space)
   - data/Amazon/text/train/*.csv                 item popularity (freq; identical
                                                  across modes, only SID cols differ)
-  - data/Amazon/index/{DS}.index.{mode}.json     per-mode SID tables
+  - data/Amazon/index/{DS}.index.{mode}.json     per-mode SID tables (SID -> item id)
+  - data/Amazon/index/{DS}.item.json             optional item titles (case study)
 
 Buckets (by TARGET item's train frequency):
   cold  freq == 0   |  low / mid / high = tertiles of nonzero freq
@@ -51,23 +53,19 @@ REFERENCE = {
 }
 
 EVAL_FILES = {
+    "sft_text": "text",
+    "sft_fixed": "fixed",
+    "sft_adaptive": "adaptive",
+    "grpo_text": "text",
+    "grpo_adaptive": "adaptive",
+}
+EVAL_PATHS = {
     "sft_text": "results/eval_sft_text_seed42.json",
     "sft_fixed": "results/eval_sft_fixed_seed42.json",
     "sft_adaptive": "results/eval_sft_adaptive_seed42.json",
     "grpo_text": "results/eval_grpo_text_seed42.json",
     "grpo_adaptive": "results/eval_grpo_adaptive_seed42.json",
 }
-
-
-def load_info(mode: str) -> tuple[dict[int, str], dict[str, list[int]]]:
-    path = glob.glob(f"data/Amazon/{mode}/info/{DATASET}*.txt")[0]
-    id2name, name2ids = {}, defaultdict(list)
-    with open(path, "r", encoding="utf-8") as f:
-        for i, line in enumerate(f):
-            name = line.split("\t")[0].strip()
-            id2name[i] = name
-            name2ids[name].append(i)
-    return id2name, name2ids
 
 
 def make_buckets(freq: np.ndarray) -> tuple[dict[int, str], dict[str, float]]:
@@ -89,13 +87,21 @@ def make_buckets(freq: np.ndarray) -> tuple[dict[int, str], dict[str, float]]:
     return bucket_of, mean_alpha
 
 
-def rank_of_target(sample: dict) -> int | None:
-    """First index (0-based) of the ground truth in the prediction list, or None."""
-    preds = [p.strip('"\n').strip() for p in sample["predict"]]
+def target_sid(sample: dict) -> str:
     out = sample["output"]
-    target = out[0].strip('"').strip() if isinstance(out, list) else out.strip(' \n"')
-    for i, p in enumerate(preds):
-        if p == target:
+    t = out[0] if isinstance(out, list) else out
+    return t.strip(' \n"')
+
+
+def rank_of_target(sample: dict) -> int | None:
+    """First index (0-based) of the ground truth in the prediction list, or None.
+
+    Matching is pure SID-string equality within the mode's own SID space
+    (exactly what calc.py does) -- independent of item-id resolution.
+    """
+    t = target_sid(sample)
+    for i, p in enumerate(sample["predict"]):
+        if p.strip('"\n').strip() == t:
             return i
     return None
 
@@ -113,55 +119,71 @@ def metrics(ranks: list[int | None]) -> dict:
 def main() -> None:
     train_csv = sorted(glob.glob("data/Amazon/text/train/*.csv"))[0]
     freq = compute_item_freq(train_csv)
-    id2name, name2ids = load_info("text")
     bucket_of, mean_alpha = make_buckets(freq)
-    dup_names = sum(1 for ids in name2ids.values() if len(ids) > 1)
+
+    # per-mode reverse index: SID string -> [item ids] (a SID shared by >1 item
+    # = collision; such targets are excluded from buckets, counted separately)
+    rev_index = {}
+    titles = {}
+    item_json = f"data/Amazon/index/{DATASET}.item.json"
+    if os.path.exists(item_json):
+        with open(item_json, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        titles = {int(k): (v if isinstance(v, str) else str(v)) for k, v in raw.items()}
+    for mode in ["text", "fixed", "adaptive"]:
+        with open(f"data/Amazon/index/{DATASET}.index.{mode}.json", "r", encoding="utf-8") as f:
+            idx = json.load(f)
+        rev = defaultdict(list)
+        for iid, toks in idx.items():
+            rev["".join(toks)].append(int(iid))
+        rev_index[mode] = dict(rev)
 
     print(f"items={len(freq)}  cold_items={(freq == 0).sum()}  "
-          f"n_ref(median nonzero)={np.median(freq[freq > 0]):.0f}  dup_names={dup_names}")
+          f"n_ref(median nonzero)={np.median(freq[freq > 0]):.0f}")
     print(f"mean adaptive alpha per bucket: "
           + "  ".join(f"{b}={mean_alpha[b]:.3f}" for b in ["cold", "low", "mid", "high"]))
 
     # ---- stratified metrics -------------------------------------------------
     strat = {}
+    mismatches = []
     print("\n===== SELF-VALIDATION (overall NDCG@10 must match calc.py) =====")
-    for key, path in EVAL_FILES.items():
-        with open(path, "r", encoding="utf-8") as f:
+    for key, mode in EVAL_FILES.items():
+        with open(EVAL_PATHS[key], "r", encoding="utf-8") as f:
             data = json.load(f)
         ranks, per_bucket = [], defaultdict(list)
-        unmatched = 0
+        unknown = ambiguous = 0
         for s in data:
-            out = s["output"]
-            tname = out[0] if isinstance(out, list) else out
-            tname = tname.strip(' \n"')
-            ids = name2ids.get(tname)
-            if not ids:
-                unmatched += 1
-                ranks.append(None)
-                continue
             r = rank_of_target(s)
             ranks.append(r)
-            per_bucket[bucket_of.get(ids[0], "cold")].append(r)
+            ids = rev_index[mode].get(target_sid(s))
+            if ids is None:
+                unknown += 1
+            elif len(ids) > 1:
+                ambiguous += 1  # collision SID: item id not resolvable, skip bucketing
+            else:
+                per_bucket[bucket_of.get(ids[0], "cold")].append(r)
         overall = metrics(ranks)
         ref = REFERENCE[key]
         flag = "OK" if abs(overall["NDCG@10"] - ref) < 0.002 else "MISMATCH!"
+        if flag != "OK":
+            mismatches.append(key)
         print(f"{key:14s} NDCG@10={overall['NDCG@10']:.4f}  (calc.py {ref})  {flag}"
-              + (f"  unmatched={unmatched}" if unmatched else ""))
+              f"  unknown_sid={unknown}  collision_sid={ambiguous}")
         strat[key] = {b: metrics(per_bucket[b]) for b in ["cold", "low", "mid", "high"]}
         strat[key]["ALL"] = overall
+    if mismatches:
+        print(f"\n*** VALIDATION FAILED for {mismatches} -- stratified tables below are NOT trustworthy ***")
+        sys.exit(1)
 
     for metric in ["NDCG@10", "HR@10", "NDCG@5", "HR@5"]:
         print(f"\n===== {metric} by target-popularity bucket =====")
-        hdr = f"{'bucket':8s}" + "".join(f"{k:>15s}" for k in EVAL_FILES)
-        print(hdr)
+        print(f"{'bucket':8s}" + "".join(f"{k:>15s}" for k in EVAL_FILES))
         for b in ["cold", "low", "mid", "high", "ALL"]:
             row = f"{b:8s}"
             for k in EVAL_FILES:
-                v = strat[k][b][metric]
-                row += f"{v:15.4f}"
+                row += f"{strat[k][b][metric]:15.4f}"
             if b != "ALL":
-                n = strat["sft_text"][b]["n"]
-                row += f"   (n={n})"
+                row += f"   (n={strat['sft_text'][b]['n']})"
             print(row)
 
     print("\n===== deltas: adaptive - text (NDCG@10) =====")
@@ -172,32 +194,32 @@ def main() -> None:
 
     # ---- collision case study ----------------------------------------------
     print("\n===== case study: text-collision groups vs adaptive/fixed =====")
-    idx_dir = "data/Amazon/index"
-    index = {}
-    for m in ["text", "fixed", "adaptive"]:
-        with open(f"{idx_dir}/{DATASET}.index.{m}.json", "r", encoding="utf-8") as f:
-            index[m] = json.load(f)
+    index = {m: {int(i): t for i, t in json.load(
+        open(f"data/Amazon/index/{DATASET}.index.{m}.json", encoding="utf-8")).items()}
+        for m in ["text", "fixed", "adaptive"]}
 
     text_groups = defaultdict(list)
     for iid, toks in index["text"].items():
-        text_groups["".join(toks)].append(int(iid))
+        text_groups["".join(toks)].append(iid)
     colliding = {sid: ids for sid, ids in text_groups.items() if len(ids) > 1}
     sep_adaptive = sep_fixed = 0
     for sid, ids in colliding.items():
-        if len({"".join(index["adaptive"][str(i)]) for i in ids}) == len(ids):
+        if len({"".join(index["adaptive"][i]) for i in ids}) == len(ids):
             sep_adaptive += 1
-        if len({"".join(index["fixed"][str(i)]) for i in ids}) == len(ids):
+        if len({"".join(index["fixed"][i]) for i in ids}) == len(ids):
             sep_fixed += 1
     n_groups = len(colliding)
     n_items_in_groups = sum(len(v) for v in colliding.values())
     print(f"text collision groups: {n_groups} (covering {n_items_in_groups} items) | "
           f"fully separated in adaptive: {sep_adaptive}/{n_groups}, in fixed: {sep_fixed}/{n_groups}")
 
+    def title(i: int) -> str:
+        return (titles.get(i) or f"item{i}")[:45]
+
     for sid, ids in list(colliding.items())[:8]:
-        names = [id2name.get(i, "?")[:45] for i in ids]
-        print(f"- ids={ids} textSID={sid[:30]}...")
-        for i, nm in zip(ids, names):
-            print(f"    {i:5d} {nm:47s} adaptiveSID={''.join(index['adaptive'][str(i)])[:24]}")
+        print(f"- textSID={sid}")
+        for i in ids:
+            print(f"    {i:5d} {title(i):47s} adaptiveSID={''.join(index['adaptive'][i])[:24]}")
 
     out = {
         "buckets": {"mean_alpha": mean_alpha},
