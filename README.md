@@ -92,8 +92,6 @@ MiniOneRec/         vendored upstream (arXiv:2510.24431) with ACSID edits in rq/
                     evaluate.py / calc.py / minionerec_trainer.py used as-is
 experiments/        run scripts + results/ (collision.json, phase5_analysis.json)
 MiniOneRec/results/ per-sample eval JSONs (SFT ×3 modes + GRPO ×2 modes)
-HANDOFF.md          operational handoff: environment pitfalls, run history,
-                    cross-session resume recipes (the real ops manual)
 ```
 
 ## Reproduction (1× AMD MI300X 192GB, ROCm 7.2.3, torch 2.11, Python 3.12)
@@ -117,13 +115,14 @@ SKIP_MODES="" PHASES="eval"  SEEDS_STR="42" bash ../acsid_amd/run_experiments.sh
 #    8h cloud sessions; rerunning the same command auto-resumes from the last
 #    checkpoint, finished modes are skipped)
 SKIP_MODES="" PHASES="grpo"  SEEDS_STR="42" bash ../acsid_amd/run_experiments.sh
-#    then evaluate the GRPO checkpoints (see HANDOFF.md §3 for the exact loop)
+#    then evaluate the GRPO checkpoints: same evaluate.py+calc.py loop as the
+#    SFT eval above, with --base_model output_dir/grpo_${mode}_seed42/final_checkpoint
 
 # 4. stratified analysis + collision case study (CPU-only, runs anywhere)
 python ../acsid/phase5_analysis.py
 ```
 
-Known deviations from the plan (recorded in HANDOFF.md): GRPO runs 1 epoch
+Known deviations from the plan: GRPO runs 1 epoch
 instead of 2 (8h session cap; full RL data kept), single seed (42) throughout
 (100GB storage quota), fixed stays SFT-only by design (ablation control).
 
@@ -145,5 +144,5 @@ All planned experiments complete (Phase 2 SID construction, Phase 3 SFT+eval,
 Phase 4 GRPO+eval, Phase 5 stratified analysis + case study). Single-branch
 repo: the executed MI300X path lives on `main` (the `acsid-amd` branch was
 merged in and deleted); the superseded A10/QLoRA-era plan is preserved under
-the `a10-archive` tag. Operational history and every environment pitfall:
-[`HANDOFF.md`](HANDOFF.md).
+the `a10-archive` tag. Detailed operational run history and environment-pitfall
+notes are kept in an internal doc, not published here.

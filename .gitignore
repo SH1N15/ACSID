@@ -28,3 +28,7 @@ acsid_amd/__pycache__/
 
 # AMD incentive-program articles — private draft content, not for the repo
 docs/
+
+# Internal operational handoff (cloud instance details, accounts, paths) —
+# kept locally, never published
+HANDOFF.md

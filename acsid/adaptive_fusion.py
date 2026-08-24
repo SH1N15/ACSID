@@ -17,10 +17,11 @@ embeddings straight into the RQ-VAE).
 
 This replaces the earlier spherical convex-combination fusion
 Normalize[(1-a)*Normalize(z_text)+a*Normalize(P(z_cf))], which collapsed the
-RQ-VAE codebook distribution (collision 0.65-0.85 vs upstream 0.004);
-see HANDOFF.md §5 for the decision record.
+RQ-VAE codebook distribution (collision 0.65-0.85 vs upstream 0.004): forcing
+anisotropic Qwen embeddings onto the unit sphere squeezed them into a tiny
+cap, so level-0 argmin allocation collapsed onto 1-3 of 256 tokens.
 
-Item-id == row index (see PROJECT_PLAN.md §12.2), so alpha/cf arrays are
+Item-id == row index, so alpha/cf arrays are
 indexed by the same row used for the text .npy.
 """
 
