@@ -1,7 +1,7 @@
 """Item2Vec (SGNS) collaborative embedding training.
 
 Trains a word2vec-style skip-gram model over user interaction sequences using
-ONLY the train split (PROJECT_PLAN.md §12.1 — collaborative signal must not
+ONLY the train split (collaborative signal must not
 be contaminated by valid/test interactions). Outputs an [N, dim] numpy array
 indexed by item_id == row index, matching the text .npy layout.
 

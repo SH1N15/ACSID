@@ -1,13 +1,12 @@
 # ACSID on AMD — MI300X 192GB single-GPU branch
 
 This folder is the AMD variant of the project: **same ACSID method** (collaborative
-signal fused into the RQ-VAE input via `P` + adaptive `alpha_i`), different
-training configuration than the A10 plan. Design & experiment matrix:
-[`PLAN_AMD.md`](PLAN_AMD.md); base plan: [`../PROJECT_PLAN.md`](../PROJECT_PLAN.md).
+signal fused into the RQ-VAE input via `P` + adaptive `alpha_i`), executed on
+1x AMD MI300X 192GB. Method and results: root [`../README.md`](../README.md).
 
 Key differences vs the NVIDIA/A10 path:
 
-| | A10 24GB (`main`) | MI300X 192GB (this branch) |
+| | A10 24GB (archived plan) | MI300X 192GB (executed) |
 |---|---|---|
 | fine-tune | QLoRA 4-bit (planned) | **full-param bf16** |
 | optimizer | paged_adamw_32bit (bnb) | **adamw_torch** |
@@ -19,19 +18,18 @@ Key differences vs the NVIDIA/A10 path:
 
 ```
 acsid_amd/
-├── PLAN_AMD.md          AMD variant of the project plan (v4-amd)
 ├── sft.py               AMD SFT entrypoint (upstream sft.py minus bitsandbytes,
 │                        plus path-injection + fixes, see "Fixes" below)
 ├── rl.py                AMD GRPO entrypoint (optim=adamw_torch, ReReTrainer kept)
 ├── sft.sh               single-GPU SFT launch (self-locating)
 ├── rl.sh                single-GPU GRPO launch (self-locating)
-├── run_experiments.sh   full 10-run matrix (6 SFT + 4 GRPO)
+├── run_experiments.sh   phase launcher (SFT / eval / GRPO, per seed)
 ├── config/zero2_opt.yaml  BACKUP single-GPU config (not wired; DeepSpeed unused)
 └── requirements.txt     ROCm requirements (torch installed separately)
 ```
 
 Phase 2 (SID construction: Item2Vec → fusion+P → RQ-VAE → 3 SID sets → CSVs)
-is **shared** with the A10 branch — run `acsid/generate_sid.py` unchanged
+lives in `acsid/` — run `acsid/generate_sid.py` unchanged
 (`--device cuda:0` works on ROCm; PyTorch maps the CUDA API onto HIP).
 
 ## Fixes applied on this branch (vs first draft)
@@ -63,9 +61,8 @@ untouched, and only add the acsid_amd requirements into the venv. We do NOT
 reinstall torch -- a wrong ROCm tag/wheel is the fastest way to break torch.
 
 ```bash
-# clone + check out this branch
 git clone https://github.com/SH1N15/ACSID.git
-cd ACSID && git checkout acsid-amd
+cd ACSID
 
 # build isolated venv that inherits the system torch (idempotent)
 bash acsid_amd/setup_env.sh
@@ -117,7 +114,7 @@ BASE_MODEL=/abs/path/to/Qwen2.5-3B-Base bash acsid_amd/sft.sh
 #  and the CSVs to the upstream ./data/Amazon/{train,valid}/*.csv)
 ```
 
-### 3. Full 10-run matrix (Phase 3+4)
+### 3. SFT + eval + GRPO (the executed experiment: 3 SFT modes + 2 GRPO modes, seed 42)
 
 ```bash
 BASE_MODEL=/abs/path/to/Qwen2.5-3B-Base bash acsid_amd/run_experiments.sh

@@ -1,7 +1,7 @@
 """Adaptive collaborative-text fusion for ACSID.
 
 Implements the per-item adaptive weight and the residual-injection fusion
-(PROJECT_PLAN.md §2.3, v2 2026-08-20):
+(v2, 2026-08-20):
 
     alpha_i = alpha_max * min(1, log(1 + n_i) / log(1 + n_ref))
     z_hat_c = Normalize(P(z_cf))
@@ -44,7 +44,7 @@ def compute_item_freq(train_csv: str) -> np.ndarray:
     """Return per-item interaction count over the train split only.
 
     Reads only the train CSV so valid/test interactions never leak into
-    the collaborative signal (see PROJECT_PLAN.md §12.1). The returned
+    the collaborative signal. The returned
     array is indexed by item_id == row index: count[i] = number of times
     item i appears in any train user's history or target.
 

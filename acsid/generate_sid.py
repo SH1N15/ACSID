@@ -11,8 +11,7 @@ paths resolve against that directory:
     regenerated data : ../data/Amazon/<mode>/{train,valid,test,info}/...
 
 Pipelines per mode (shared training protocol — codebook, e_dim, layers, lr,
-epochs, seed — only the input representation differs, per PROJECT_PLAN.md
-§2.4):
+epochs, seed — only the input representation differs):
 
     item2vec.py  -> cf.npy
     (compute alpha) -> alpha.npy        # adaptive only

@@ -74,10 +74,7 @@ adaptive: α_i per formula; cold-start items (n_i=0) degenerate to pure text
 ```
 
 Design docs: [`acsid/README.md`](acsid/README.md) (Phase 2 architecture:
-fusion module, orchestrator, collision analysis). The original planning
-documents (A10 QLoRA variant + MI300X plan) were removed in the 2026-08-23
-cleanup; the executed plan's outcomes live in this README and
-[`HANDOFF.md`](HANDOFF.md).
+fusion module, orchestrator, collision analysis).
 
 ## Repo layout
 

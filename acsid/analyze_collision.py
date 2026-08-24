@@ -113,7 +113,7 @@ def main():
         print("\nordering (lower collision rate is better):")
         for m in order:
             print(f"  {m:12s} {results[m]['collision_rate']:.4f}")
-        # directional check: adaptive <= fixed <= text (trend expected by PROJECT_PLAN §3.5)
+        # directional check: adaptive <= fixed <= text (lower collision is better)
         if {"text", "fixed", "adaptive"}.issubset(results.keys()):
             t, f, a = results["text"]["collision_rate"], results["fixed"]["collision_rate"], results["adaptive"]["collision_rate"]
             print(f"\n[check] adaptive({a:.4f}) <= fixed({f:.4f}) <= text({t:.4f}) ? "
